@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-21
+
 First public release.
 
 ### Added
@@ -29,3 +31,6 @@ First public release.
   restart banner after reloading the daemon.
 - Release APKs built, signed and published by GitHub Actions, with
   `SHA256SUMS` and signed build provenance.
+
+[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/SyscallBrain/zerodroid/releases/tag/v0.4.1
