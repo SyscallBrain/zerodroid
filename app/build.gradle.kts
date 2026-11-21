@@ -79,7 +79,7 @@ android {
 }
 dependencies {
     // Kotlin stdlib
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.1.0")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.21")
 
     // Compose BOM — brings ui, material3, foundation, activity-compose
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
@@ -92,18 +92,18 @@ dependencies {
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 
     // Kotlinx serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.13.0")
 
     // Security: Bouncy Castle for CSR, DataStore for encrypted token
     implementation("org.bouncycastle:bcprov-jdk18on:1.87")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.87")
-    implementation("androidx.datastore:datastore-preferences:1.2.0")
+    implementation("androidx.datastore:datastore-preferences:1.3.0")
 
     // Network: OkHttp for WebSocket and enrollment
     implementation("com.squareup.okhttp3:okhttp:5.5.1")
 
     // Kotlinx coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     // Navigation Compose
     implementation("androidx.navigation:navigation-compose:2.10.2")
@@ -114,6 +114,6 @@ dependencies {
 
     // Test
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
-    testImplementation("org.jetbrains.kotlin:kotlin-test:2.1.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:2.4.21")
 }
