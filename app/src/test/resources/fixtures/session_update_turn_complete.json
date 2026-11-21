@@ -1,0 +1,11 @@
+{
+ "jsonrpc": "2.0",
+ "method": "session/update",
+ "params": {
+  "type": "turn_complete",
+  "session_id": "sess-1",
+  "outcome": "ok",
+  "content": "done",
+  "message_count": 4
+ }
+}

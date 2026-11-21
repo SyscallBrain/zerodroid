@@ -1,0 +1,9 @@
+{"entries":[
+ {"path":"agents.coder.enabled","category":"agents","kind":"bool","type_hint":"bool","value":"true","populated":true,"is_secret":false,"is_env_overridden":false,"description":"Whether the agent runs","section":"agents"},
+ {"path":"agents.coder.reasoning","category":"agents","kind":"enum","type_hint":"Reasoning","value":"medium","populated":true,"is_secret":false,"enum_variants":["low","medium","high"],"description":"Reasoning effort","tab":"Model"},
+ {"path":"agents.coder.model_provider","category":"agents","kind":"alias_ref","type_hint":"String","value":"anthropic.default","populated":true,"is_secret":false,"alias_source":"model_providers","description":"Provider alias"},
+ {"path":"agents.coder.channels","category":"agents","kind":"string_array","type_hint":"Vec<String>","value":"[\"discord.coder\", \"telegram\"]","populated":true,"is_secret":false,"description":"Channels"},
+ {"path":"agents.coder.max_tool_iterations","category":"agents","kind":"integer","type_hint":"u32","value":"40","populated":true,"is_secret":false,"is_env_overridden":true,"description":"Max tool calls per turn"},
+ {"path":"agents.coder.system_prompt","category":"agents","kind":"string","type_hint":"String","value":"<unset>","populated":false,"is_secret":false,"multiline":true,"description":"Prompt","setup":{"required":true}},
+ {"path":"agents.coder.future","category":"agents","kind":"brand_new_kind","type_hint":"?","populated":false,"is_secret":false,"description":"?"}
+]}

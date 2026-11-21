@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question
+    url: https://github.com/SyscallBrain/zerodroid/discussions/categories/q-a
+    about: Questions about installing, pairing or using ZeroDroid.
+  - name: ZeroClaw daemon problems
+    url: https://github.com/zeroclaw-labs/zeroclaw/issues
+    about: Problems with the daemon itself, its agents, tools or channels.
+  - name: Report a security vulnerability
+    url: https://github.com/SyscallBrain/zerodroid/security/advisories/new
+    about: Please report security problems privately.

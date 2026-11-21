@@ -1,0 +1,23 @@
+# Gradle and Android Studio
+build/
+.gradle/
+.kotlin/
+local.properties
+.idea/
+*.iml
+captures/
+build.log
+
+# Release outputs and signing keys
+dist/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Editors and OS
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

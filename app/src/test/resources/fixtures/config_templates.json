@@ -1,0 +1,6 @@
+{"templates":[
+ {"path":"agents","kind":"map","value_type":"AgentConfig","description":"Agents"},
+ {"path":"providers.models.anthropic","kind":"map","value_type":"ModelProviderConfig","description":"Anthropic"},
+ {"path":"providers.models.ollama","kind":"map","value_type":"ModelProviderConfig","description":"Ollama"},
+ {"path":"channels.discord","kind":"map","value_type":"DiscordConfig","description":"Discord"}
+]}

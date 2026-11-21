@@ -1,0 +1,8 @@
+{"sections":[
+ {"key":"providers.models","label":"Model providers","help":"Pick a model provider","group":"Foundation","group_key":"foundation","shape":"typed_family_map","has_picker":true,"completed":true,"ready":true,"is_quickstart":true},
+ {"key":"agents","label":"Agents","help":"Agents","group":"Foundation","group_key":"foundation","shape":"one_tier_alias_map","has_picker":false,"completed":true},
+ {"key":"channels","label":"Channels","help":"Channels","group":"Reach","group_key":"reach","shape":"typed_family_map","has_picker":true,"completed":true},
+ {"key":"autonomy","label":"Autonomy","help":"Autonomy","group":"Safety","group_key":"safety","shape":"direct_form","has_picker":false,"completed":true},
+ {"key":"memory","label":"Memory","help":"Memory backend","group":"Runtime","group_key":"runtime","shape":"backend_picker","has_picker":true,"completed":false},
+ {"key":"future","label":"Future","help":"x","shape":"future_shape","has_picker":false,"completed":false,"brand_new":1}
+]}

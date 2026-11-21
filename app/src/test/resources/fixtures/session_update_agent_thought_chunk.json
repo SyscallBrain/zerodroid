@@ -1,0 +1,9 @@
+{
+ "jsonrpc": "2.0",
+ "method": "session/update",
+ "params": {
+  "type": "agent_thought_chunk",
+  "session_id": "sess-1",
+  "text": "thinking"
+ }
+}

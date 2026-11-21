@@ -1,0 +1,4 @@
+# ZeroDroid's own code, compiled ahead of time at install/idle (no macrobenchmark device here,
+# so whole-package wildcards instead of a recorded journey). Compose/AndroidX ship their own.
+HSPLpt/tiago/zerodroid/**;->**(**)**
+Lpt/tiago/zerodroid/**;

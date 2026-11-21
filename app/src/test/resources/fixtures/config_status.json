@@ -1,0 +1,7 @@
+{"needs_quickstart":false,"reason":"","has_partial_state":false,"missing":[],"application":{"published_revision":{"epoch":"e","sequence":3},"record_limit":64,"truncated":false,"records":[
+ {"path":["agents","coder","reasoning"],"target":{"kind":"daemon"},"revision":{"epoch":"e","sequence":3},"outcome":"applied_live"},
+ {"path":["gateway","port"],"target":{"kind":"daemon"},"revision":{"epoch":"e","sequence":3},"outcome":"queued_for_reload","reason":"daemon_reload_required"},
+ {"path":["x"],"target":{"kind":"daemon"},"revision":{"epoch":"e","sequence":3},"outcome":"rejected","reason":"target_retired"},
+ {"path":["y"],"target":{"kind":"daemon"},"revision":{"epoch":"e","sequence":3},"outcome":"pending"},
+ {"path":["z"],"target":{"kind":"daemon"},"revision":{"epoch":"e","sequence":3},"outcome":"future"}
+]}}

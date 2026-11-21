@@ -1,0 +1,10 @@
+{"pid":4242,"updated_at":"2026-11-20T10:00:00Z","uptime_seconds":156000,
+ "components":{
+  "daemon":{"status":"ok","updated_at":"t","last_ok":"t","last_error":null,"restart_count":0},
+  "gateway":{"status":"ok","updated_at":"t","last_ok":"t","restart_count":0},
+  "scheduler":{"status":"error","updated_at":"t","last_error":"db locked","restart_count":2},
+  "channel:discord.coder":{"status":"ok","updated_at":"t","restart_count":0},
+  "channel:telegram.main":{"status":"error","updated_at":"t","last_error":"401 unauthorized","restart_count":0},
+  "mqtt":{"status":"starting","updated_at":"t","restart_count":0}
+ },
+ "process":{"rss_bytes":148897792,"system_ram_total_bytes":3870000000,"cpu_percent":33.0,"num_cpus":8}}

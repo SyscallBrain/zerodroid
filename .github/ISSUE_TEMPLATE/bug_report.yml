@@ -1,0 +1,66 @@
+name: Bug report
+description: Something does not work as described
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. A few things first:
+
+        - Remove tokens, pairing links, host names, IP addresses and other private details from what you paste. Never paste a `zerodroid://pair` link.
+        - For a security problem, use a [private advisory](https://github.com/SyscallBrain/zerodroid/security/advisories/new) instead (see SECURITY.md).
+        - Some failures come from the daemon itself: if you can, try the same thing in zerocode or the ZeroClaw web dashboard.
+  - type: input
+    id: version
+    attributes:
+      label: ZeroDroid version
+      description: Shown at the bottom of Config → ZeroDroid & pairing.
+      placeholder: 0.4.1 (41)
+    validations:
+      required: true
+  - type: input
+    id: zeroclaw
+    attributes:
+      label: ZeroClaw version
+      description: The output of `zeroclaw --version`, or the version in Config → ZeroDroid & pairing.
+      placeholder: zeroclaw 0.9.0
+    validations:
+      required: true
+  - type: dropdown
+    id: setup
+    attributes:
+      label: Where does the daemon run?
+      options:
+        - In Termux on the same phone
+        - On another machine, over Tailscale
+        - On another machine, on the local network
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone and Android version
+      placeholder: Samsung Galaxy A26, Android 16
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead. A screenshot helps with layout problems.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a chat with …
+        2. Tap …
+  - type: textarea
+    id: crash
+    attributes:
+      label: Crash log
+      description: If the app crashed, it saved the stack trace in `Download/crashlogs/pt.tiago.zerodroid-*.txt` on the phone. Paste the newest one.
+      render: text

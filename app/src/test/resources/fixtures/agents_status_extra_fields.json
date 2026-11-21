@@ -1,0 +1,15 @@
+{
+ "agents": [
+  {
+   "alias": "coder",
+   "enabled": true,
+   "runtime_profile": "fast",
+   "live_sessions": 2,
+   "persisted_sessions": 3,
+   "channels": [
+    "cli"
+   ],
+   "future_field": 1
+  }
+ ]
+}

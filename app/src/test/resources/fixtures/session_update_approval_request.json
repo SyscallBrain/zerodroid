@@ -1,0 +1,12 @@
+{
+ "jsonrpc": "2.0",
+ "method": "session/update",
+ "params": {
+  "type": "approval_request",
+  "session_id": "sess-1",
+  "request_id": "req-9",
+  "tool_name": "shell",
+  "arguments_summary": "rm -rf /tmp/x",
+  "timeout_secs": 120
+ }
+}

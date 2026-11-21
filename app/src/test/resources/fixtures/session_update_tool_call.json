@@ -1,0 +1,13 @@
+{
+ "jsonrpc": "2.0",
+ "method": "session/update",
+ "params": {
+  "type": "tool_call",
+  "session_id": "sess-1",
+  "tool_call_id": "tc-1",
+  "name": "shell",
+  "raw_input": {
+   "cmd": "ls"
+  }
+ }
+}

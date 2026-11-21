@@ -1,0 +1,29 @@
+name: Feature request
+description: An idea for ZeroDroid
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search the [existing issues](https://github.com/SyscallBrain/zerodroid/issues?q=is%3Aissue) first; if the idea is
+        already there, a 👍 on it tells us more than a new issue. Open-ended ideas can also go to
+        [Discussions](https://github.com/SyscallBrain/zerodroid/discussions/categories/ideas).
+
+        ZeroDroid only uses what the ZeroClaw daemon exposes. If your idea needs something new in the daemon, say so: it may belong in [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw/issues) first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: The task you are trying to get done, rather than the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could ZeroDroid help?
+      description: A screen, a button, a setting … whatever you have in mind. A sketch is welcome.
+  - type: textarea
+    id: today
+    attributes:
+      label: What do you do today instead?
+      description: The workaround you use now, if any, for example zerocode or the web dashboard.

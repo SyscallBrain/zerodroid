@@ -1,0 +1,10 @@
+{
+ "jsonrpc": "2.0",
+ "method": "session/update",
+ "params": {
+  "type": "context_usage",
+  "session_id": "sess-1",
+  "input_tokens": 1000,
+  "max_context_tokens": 200000
+ }
+}

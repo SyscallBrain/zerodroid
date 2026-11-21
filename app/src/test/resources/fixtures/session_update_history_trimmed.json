@@ -1,0 +1,12 @@
+{
+ "jsonrpc": "2.0",
+ "method": "session/update",
+ "params": {
+  "type": "history_trimmed",
+  "session_id": "sess-1",
+  "dropped_messages": 2,
+  "dropped_turns": 1,
+  "kept_turns": 5,
+  "reason": "budget"
+ }
+}

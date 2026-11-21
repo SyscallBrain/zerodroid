@@ -1,0 +1,11 @@
+{
+ "jsonrpc": "2.0",
+ "method": "session/update",
+ "params": {
+  "type": "budget_warning",
+  "session_id": "sess-1",
+  "current_usd": 0.9,
+  "limit_usd": 1.0,
+  "period": "daily"
+ }
+}
