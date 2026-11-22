@@ -163,8 +163,13 @@ class SopEditorViewModel(
     fun connectTo(to: Int) {
         val m = _state.value.mode as? EditorMode.Connect ?: return
         _state.update { it.copy(mode = EditorMode.Browse) }
-        wire(WireEdit("connect", m.from, to, m.role.wire, m.port))
+        wire(edgeFor("connect", m, to))
     }
+
+    /** "Step N waits for P" is the edge P → N: dependency edits write the target's `depends_on`. */
+    private fun edgeFor(op: String, m: EditorMode.Connect, picked: Int): WireEdit =
+        if (m.role == PortRole.WaitsFor) WireEdit(op, picked, m.from, m.role.wire)
+        else WireEdit(op, m.from, picked, m.role.wire, m.port)
 
     /** Adds a step and wires the pending port to it in one go. */
     fun connectToNewStep() {
@@ -174,7 +179,7 @@ class SopEditorViewModel(
         pushUndo(cur)
         version++
         _state.update { it.copy(draft = next, dirty = true, canUndo = true, mode = EditorMode.Browse) }
-        wire(WireEdit("connect", m.from, n, m.role.wire, m.port), pushUndo = false)
+        wire(edgeFor("connect", m, n), pushUndo = false)
     }
 
     fun disconnect(from: Int, to: Int, role: PortRole, port: Int? = null) = wire(WireEdit("disconnect", from, to, role.wire, port))

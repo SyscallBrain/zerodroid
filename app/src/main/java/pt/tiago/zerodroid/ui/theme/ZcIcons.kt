@@ -65,4 +65,8 @@ object ZcIcons {
     val Code = icon("code", "M8.5 7.5 4 12l4.5 4.5", "M15.5 7.5 20 12l-4.5 4.5", "M13.5 5l-3 14")
     val Folder = icon("folder", "M3.5 7A1.5 1.5 0 0 1 5 5.5h4.2l2 2.2H19A1.5 1.5 0 0 1 20.5 9.2V17A1.5 1.5 0 0 1 19 18.5H5A1.5 1.5 0 0 1 3.5 17z")
     val Memory = icon("memory", "M3.5 8h17v8h-17z", "M7 8v8", "M11 8v8", "M15 8v8", "M5 16v3", "M19 16v3")
+    val Undo = icon("undo", "M9 14.5 4.5 10 9 5.5", "M4.5 10h10a5 5 0 0 1 0 10H12")
+    val Branch = icon("branch", "M6.5 4v11", "M17.5 9.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z", "M6.5 20.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z", "M17.5 9.5a8 8 0 0 1-8 8")
+    val Play = icon("play", "M7.5 5.5v13l11-6.5z")
+    val Flow = icon("flow", "M4 4.5h7v5H4z", "M13 14.5h7v5h-7z", "M7.5 9.5v4.5a1 1 0 0 0 1 1H13")
 }

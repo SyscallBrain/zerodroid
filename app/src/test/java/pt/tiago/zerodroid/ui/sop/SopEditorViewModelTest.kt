@@ -86,6 +86,18 @@ class SopEditorViewModelTest {
     }
 
     @Test
+    fun waitsForWiresPickedStepAsSource() = runTest {
+        // Dependency edits write the *target's* depends_on (zeroclaw-runtime sop/wire.rs), so "step 4
+        // waits for step 2" is the edge 2 -> 4.
+        val c = rpc().apply { on("sops/wire-draft", """{"sop":$loaded,"graph":$graph}""") }
+        val v = vm(c)
+        v.startConnect(4, PortRole.WaitsFor)
+        v.connectTo(2); runCurrent()
+        val edit = c.sent.last { it.method == "sops/wire-draft" }.params!!.jsonObject["edit"]!!.jsonObject
+        assertEquals(obj("""{"op":"connect","from":2,"to":4,"role":"dependency"}"""), edit)
+    }
+
+    @Test
     fun editDebouncesGraphDraft() = runTest {
         val c = rpc()
         val v = vm(c)
