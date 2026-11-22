@@ -78,6 +78,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val workflows by viewModel.workflows.collectAsStateWithLifecycle()
+    val showWorkflows by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showWorkflowsTile.collectAsStateWithLifecycle()
     val m by viewModel.model.collectAsStateWithLifecycle()
     pt.tiago.zerodroid.RecomposeProbe("HomeScreen")
     pt.tiago.zerodroid.Perf.mark("home.firstComposition")
@@ -168,7 +169,7 @@ fun HomeScreen(
                     d = { ZcTile("Sessions", m.activeSessions?.toString(), suffix = "active", stale = m.stale, loading = loading, modifier = it) },
                 )
             }
-            item("workflows") {
+            if (showWorkflows) item("workflows") {
                 ZcTile(
                     "Workflows",
                     workflows?.toString(),

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -29,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,6 +54,7 @@ import pt.tiago.zerodroid.ui.kit.ZcTopBar
 import pt.tiago.zerodroid.ui.theme.ZcIcons
 import pt.tiago.zerodroid.ui.theme.ZcTokens
 import pt.tiago.zerodroid.ui.theme.ZcType
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -62,6 +66,8 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
     val phase by ZeroDroidConnection.phase.collectAsStateWithLifecycle()
     val conn by ZeroDroidConnection.state.collectAsStateWithLifecycle()
     val unreachable by ZeroDroidConnection.simulateUnreachable.collectAsStateWithLifecycle()
+    val showWorkflows by ZeroDroidConnection.screen.showWorkflowsTile.collectAsStateWithLifecycle()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val profile = (phase as? AppPhase.Paired)?.profile
     var confirmUnpair by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -114,6 +120,21 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
             }
             if (profile?.isOidc == true) {
                 ZcGhostButton("Sign in again", icon = ZcIcons.Refresh, modifier = Modifier.fillMaxWidth(), onClick = ZeroDroidConnection::requestRenew)
+            }
+
+            SectionHeader("Home")
+            ZcCard(Modifier.fillMaxWidth()) {
+                val toggle = { on: Boolean -> scope.launch { ZeroDroidConnection.screen.setShowWorkflowsTile(on) }; Unit }
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { toggle(!showWorkflows) },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Show Workflows card", style = ZcType.body)
+                        Text("Off hides it from Home. Approvals still reach the Inbox.", style = ZcType.caption)
+                    }
+                    ZcSwitch(showWorkflows, toggle)
+                }
             }
 
             SectionHeader("Background")
