@@ -141,6 +141,8 @@ fun FlowGraph(
     BoxWithConstraints(modifier) {
         val plan = remember(graph, maxWidth) { planFlow(graph, maxWidth.value) }
         var zoom by remember { mutableFloatStateOf(1f) }
+        // Back to 100% when the graph no longer needs zoom (e.g. a lane was deleted while zoomed out).
+        androidx.compose.runtime.LaunchedEffect(plan.zoomable) { if (!plan.zoomable) zoom = 1f }
         val base = LocalDensity.current
         val pinch = if (!plan.zoomable) Modifier else Modifier.pointerInput(Unit) {
             awaitEachGesture {

@@ -59,6 +59,14 @@ class SopDraftTest {
     }
 
     @Test
+    fun deleteStepClearsUnlessDecided() {
+        val d = obj("""{"name":"s","steps":[{"number":1,"decide":"route"},{"number":2,"unless_decided":1},{"number":3,"unless_decided":2}]}""")
+        val out = SopDraft.deleteStep(d, 1)
+        assertNull(SopDraft.step(out, 2)!!["unless_decided"])
+        assertEquals(2, SopDraft.step(out, 3)!!["unless_decided"]!!.jsonPrimitive.int)
+    }
+
+    @Test
     fun deleteStepDropsEmptiedDependsOn() {
         val d = obj("""{"name":"s","steps":[{"number":1},{"number":2,"routing":{"depends_on":[1]}}]}""")
         assertNull(SopDraft.step(SopDraft.deleteStep(d, 1), 2)!!["routing"])

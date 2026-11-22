@@ -209,6 +209,7 @@ fun RunSheet(name: String, onDismiss: () -> Unit, onStarted: (String) -> Unit, o
     var showInput by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var engineOff by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismiss, containerColor = ZcTokens.surface, contentWindowInsets = NoSheetInsets) {
         Column(Modifier.padding(horizontal = ZcTokens.gutter).windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 20.dp)) {
             Text("Run ${name.trim()}", style = ZcType.title)
@@ -220,6 +221,10 @@ fun RunSheet(name: String, onDismiss: () -> Unit, onStarted: (String) -> Unit, o
                 Text("+ Add input (optional JSON)", style = ZcType.caption.copy(color = ZcTokens.accentStart), modifier = Modifier.clickable { showInput = true }.padding(vertical = 8.dp))
             }
             error?.let { Text(it, style = ZcType.caption.copy(color = ZcTokens.danger), modifier = Modifier.padding(top = 6.dp)) }
+            if (engineOff) {
+                Text("The SOP engine is off on the daemon, so workflows can't run yet.", style = ZcType.small.copy(color = ZcTokens.attention), modifier = Modifier.padding(top = 10.dp))
+                ZcGhostButton("Turn the engine on", modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { onDismiss(); onEngineOff() }
+            }
             Spacer(Modifier.height(14.dp))
             ZcPrimaryButton(if (busy) "Starting…" else "Run now", icon = ZcIcons.Play, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                 val payload = runCatching { validPayload(input) }.getOrElse { error = it.message; return@ZcPrimaryButton }
@@ -227,7 +232,7 @@ fun RunSheet(name: String, onDismiss: () -> Unit, onStarted: (String) -> Unit, o
                 scope.launch {
                     when (val r = ZeroDroidConnection.sops.run(name, payload)) {
                         is SopResult.Ok -> onStarted(r.value)
-                        SopResult.Unavailable -> { onEngineOff(); onDismiss() }
+                        SopResult.Unavailable -> engineOff = true
                         SopResult.Forbidden -> error = "Your sign-in can't run workflows"
                         is SopResult.Error -> error = r.message
                     }

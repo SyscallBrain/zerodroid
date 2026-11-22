@@ -156,6 +156,7 @@ object SopDraft {
             out = out.with("routing", r)
         }
         if (failure(out) == Failure.Goto(n)) out = out.with("on_failure", null)
+        if (out.int("unless_decided") == n) out = out.with("unless_decided", null)
         return tidy(out)
     }
 

@@ -97,10 +97,17 @@ class SopRepositoryTest {
         val e = RpcException(RpcError(RpcCodes.SOP_ALREADY_EXISTS, "SOP 'x' already exists"))
         assertEquals("A workflow with this name already exists", sopErrorText(e))
         assertEquals(
-            "This workflow was deleted elsewhere. Save as new?",
+            "This workflow was deleted elsewhere. Save again to create it.",
             sopErrorText(RpcException(RpcError(RpcCodes.SOP_NOT_FOUND, "nf"))),
         )
         assertEquals("Your sign-in can't edit workflows", sopErrorText(RpcException(RpcError(RpcCodes.FORBIDDEN, "x"))))
+    }
+
+    @Test
+    fun getNotFoundReadsAsGone() = runTest {
+        // sops/get answers INVALID_PARAMS "SOP 'x': … not found" rather than SOP_NOT_FOUND.
+        val rpc = FakeCaller().apply { fail("sops/get", RpcCodes.INVALID_PARAMS, "SOP 'x': SOP not found: x") }
+        assertEquals(SopResult.Error("This workflow no longer exists"), SopRepository(rpc).get("x"))
     }
 
     @Test

@@ -56,6 +56,28 @@ class SopRunViewModelTest {
     }
 
     @Test
+    fun pollingStopsAfterRepeatedErrors() = runTest {
+        // e.g. the workflow was deleted while its run is open: run-overlay fails with an IO error.
+        val c = rpc(listOf("running")).apply { fail("sops/run-overlay", RpcCodes.INTERNAL_ERROR, "No such file or directory") }
+        val v = vm(c)
+        v.start(); runCurrent()
+        advanceTimeBy(60_000); runCurrent()
+        assertEquals(3, c.methods().count { it == "sops/run-overlay" })
+        assertTrue(v.state.value.gone)
+    }
+
+    @Test
+    fun graphRetriedWhenFirstLoadFails() = runTest {
+        val c = rpc(listOf("running", "running", "completed")).apply { fail("sops/graph", RpcCodes.INTERNAL_ERROR, "busy") }
+        val v = vm(c)
+        runCurrent()
+        c.on("sops/graph", """{"nodes":[{"step":1}]}""")
+        v.start(); runCurrent()
+        advanceTimeBy(5_000); runCurrent()
+        assertTrue(v.state.value.graph != null)
+    }
+
+    @Test
     fun stopHaltsPolling() = runTest {
         val c = rpc(listOf("running"))
         val v = vm(c)

@@ -78,14 +78,16 @@ fun SopHost(stack: List<SopRoute>, onStack: (List<SopRoute>) -> Unit, onEnableEn
     var restartError by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var tick by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val engine = pt.tiago.zerodroid.data.ZeroDroidConnection.sopEngine
-    val enable: () -> Unit = {
+    /** [leaveGuard] runs before leaving for Config (the editor asks about unsaved edits there). */
+    val enableGuarded: ((() -> Unit) -> Unit) -> Unit = { leaveGuard ->
         scope.launch {
             when (val f = engine.fix()) {
-                pt.tiago.zerodroid.data.sop.EngineFix.Configure -> onEnableEngine()
+                pt.tiago.zerodroid.data.sop.EngineFix.Configure -> leaveGuard(onEnableEngine)
                 is pt.tiago.zerodroid.data.sop.EngineFix.Restart -> restartAsk = f
             }
         }
     }
+    val enable: () -> Unit = { enableGuarded { it() } }
     BackHandler(onBack = pop)
     Box(Modifier.fillMaxSize().background(ZcTokens.background).pointerInput(Unit) { detectTapGestures { } }) {
         androidx.compose.runtime.CompositionLocalProvider(
@@ -104,7 +106,7 @@ fun SopHost(stack: List<SopRoute>, onStack: (List<SopRoute>) -> Unit, onEnableEn
                     refreshKey = tick,
                 )
             }
-            is SopRoute.Edit -> SopEditorEntry(top.name, onBack = pop, onReplace = { onStack(stack.dropLast(1) + it) }, onPush = push, onEnableEngine = enable)
+            is SopRoute.Edit -> SopEditorEntry(top.name, onBack = pop, onReplace = { onStack(stack.dropLast(1) + it) }, onPush = push, onEnableEngine = enableGuarded)
             is SopRoute.Run -> androidx.compose.runtime.key(tick) { SopRunEntry(top.name, top.runId, onBack = pop, onEnableEngine = enable) }
         }
         }

@@ -76,7 +76,7 @@ import pt.tiago.zerodroid.ui.theme.ZcType
 private object FlowScrollMemory { val offsets = HashMap<String, Int>() }
 
 @Composable
-fun SopEditorEntry(name: String?, onBack: () -> Unit, onReplace: (SopRoute) -> Unit, onPush: (SopRoute) -> Unit, onEnableEngine: () -> Unit) {
+fun SopEditorEntry(name: String?, onBack: () -> Unit, onReplace: (SopRoute) -> Unit, onPush: (SopRoute) -> Unit, onEnableEngine: ((() -> Unit) -> Unit) -> Unit) {
     val vm: SopEditorViewModel = viewModel(key = "sop-edit-${name ?: "new"}") { SopEditorViewModel(name) }
     SopEditorScreen(vm, onBack, onReplace, onPush, onEnableEngine)
 }
@@ -93,13 +93,18 @@ fun SopEditorScreen(
     onBack: () -> Unit,
     onReplace: (SopRoute) -> Unit,
     onPush: (SopRoute) -> Unit,
-    onEnableEngine: () -> Unit,
+    /** Turns the SOP engine on; the argument guards leaving this screen (when it has to go to Config). */
+    onEnableEngine: ((() -> Unit) -> Unit) -> Unit,
 ) {
     val s by vm.state.collectAsStateWithLifecycle()
     val conn by ZeroDroidConnection.state.collectAsStateWithLifecycle()
     val online = conn is ConnState.Ready
     val haptics = LocalHapticFeedback.current
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    val tab = s.tab
+    // Leaving for Config with unsaved edits asks first (Enable from the Runs tab or the Run sheet).
+    var leaveAsk by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val guard: (() -> Unit) -> Unit = { proceed -> if (s.dirty || s.isNew) leaveAsk = proceed else proceed() }
+    val enable = { onEnableEngine(guard) }
     var discardAsk by remember { mutableStateOf(false) }
     var deleteAsk by remember { mutableStateOf<Int?>(null) } // step number, or 0 for the workflow
     var duplicateAsk by remember { mutableStateOf(false) }
@@ -155,8 +160,8 @@ fun SopEditorScreen(
             ConnectionBanner(!online, "Reconnecting… your changes stay here until you can save.", Tone.Attention)
             ConnectionBanner(s.error != null, s.error ?: "", Tone.Danger, action = "Dismiss", onAction = vm::consumeError)
             // Changing tab ends a half-made connection; a missing name opens Settings, where the field is.
-            LaunchedEffect(s.error) { if (s.error == NAME_FIRST) { vm.cancelConnect(); tab = 1 } }
-            ZcSegmented(listOf("Flow", "Settings", "Runs"), tab, { if (it != 0) vm.cancelConnect(); tab = it }, Modifier.padding(horizontal = ZcTokens.gutter, vertical = 6.dp))
+            LaunchedEffect(s.error) { if (s.error == NAME_FIRST) vm.selectTab(1) }
+            ZcSegmented(listOf("Flow", "Settings", "Runs"), tab, vm::selectTab, Modifier.padding(horizontal = ZcTokens.gutter, vertical = 6.dp))
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
@@ -193,7 +198,7 @@ fun SopEditorScreen(
                         }
                     }
                     tab == 1 -> SopSettingsTab(vm, s)
-                    else -> RunsTab(name, s.isNew, onOpenRun = { id -> onPush(SopRoute.Run(name, id)) }, onEnableEngine = onEnableEngine)
+                    else -> RunsTab(name, s.isNew, onOpenRun = { id -> onPush(SopRoute.Run(name, id)) }, onEnableEngine = enable)
                 }
 
                 androidx.compose.animation.AnimatedVisibility(
@@ -233,8 +238,14 @@ fun SopEditorScreen(
         null -> Unit
     }
 
-    s.review?.let { r -> ReviewSheet(r, onDismiss = vm::dismissReview, onGoTo = { n -> vm.dismissReview(); tab = 0; vm.openStep(n) }, onSaveAnyway = { vm.save(force = true) }) }
+    s.review?.let { r -> ReviewSheet(r, onDismiss = vm::dismissReview, onGoTo = { n -> vm.dismissReview(); vm.selectTab(0); vm.openStep(n) }, onSaveAnyway = { vm.save(force = true) }) }
 
+    leaveAsk?.let { proceed ->
+        ConfirmDialog(
+            "Leave without saving?", "Turning the engine on opens Config, and this workflow's unsaved edits are lost.", "Leave", danger = true,
+            onConfirm = { leaveAsk = null; proceed() }, onDismiss = { leaveAsk = null },
+        )
+    }
     if (discardAsk) {
         ConfirmDialog(
             "Discard changes?", "Your edits to this workflow haven't been saved.", "Discard", danger = true,
@@ -261,7 +272,7 @@ fun SopEditorScreen(
         }
     }
     if (legend) LegendSheet { legend = false }
-    if (runAsk) RunSheet(name, onDismiss = { runAsk = false }, onStarted = { id -> runAsk = false; onPush(SopRoute.Run(name, id)) }, onEngineOff = { runAsk = false; onEnableEngine() })
+    if (runAsk) RunSheet(name, onDismiss = { runAsk = false }, onStarted = { id -> runAsk = false; onPush(SopRoute.Run(name, id)) }, onEngineOff = { runAsk = false; enable() })
 }
 
 @Composable

@@ -151,13 +151,21 @@ class SopRepository(private val rpc: RpcCaller) {
     }
 }
 
+const val DELETED_ELSEWHERE = "This workflow was deleted elsewhere. Save again to create it."
+
 /** A plain sentence for a failed SOP call. [saving]: the call wrote a definition (not-found means it was deleted elsewhere). */
 fun sopErrorText(e: Throwable, saving: Boolean = true): String {
     val code = (e as? RpcException)?.error?.code
-    return when (code) {
+    val msg = (e as? RpcException)?.error?.message.orEmpty()
+    return when {
+        // sops/get & co. answer INVALID_PARAMS "SOP '<name>': … not found" for a missing definition.
+        code == RpcCodes.INVALID_PARAMS && msg.startsWith("SOP '") && msg.contains("not found", ignoreCase = true) ->
+            if (saving) DELETED_ELSEWHERE else "This workflow no longer exists"
+        else -> when (code) {
         RpcCodes.SOP_ALREADY_EXISTS -> "A workflow with this name already exists"
-        RpcCodes.SOP_NOT_FOUND -> if (saving) "This workflow was deleted elsewhere. Save as new?" else "This workflow no longer exists"
+        RpcCodes.SOP_NOT_FOUND -> if (saving) DELETED_ELSEWHERE else "This workflow no longer exists"
         RpcCodes.FORBIDDEN, RpcCodes.AUTH_REQUIRED -> "Your sign-in can't edit workflows"
         else -> e.userMessage()
+        }
     }
 }

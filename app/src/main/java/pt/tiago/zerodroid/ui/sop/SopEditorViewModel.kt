@@ -53,6 +53,8 @@ data class EditorState(
     val registry: TriggerSourceRegistryDto? = null,
     val toolSuggestions: List<String> = emptyList(),
     val agents: List<String> = emptyList(),
+    /** Flow (0), Settings (1), Runs (2). Kept here so it survives opening a run and coming back. */
+    val tab: Int = 0,
 )
 
 private const val UNDO_CAP = 50
@@ -156,6 +158,9 @@ class SopEditorViewModel(
 
     fun openStep(n: Int?) = _state.update { it.copy(openStep = n) }
 
+    /** Switching tab ends a half-made connection. */
+    fun selectTab(i: Int) = _state.update { it.copy(tab = i, mode = if (i == 0) it.mode else EditorMode.Browse) }
+
     fun undo() {
         undoEpoch++ // pending wires were computed for what Undo is taking back
         val (d, g) = undoStack.removeLastOrNull() ?: return
@@ -256,7 +261,8 @@ class SopEditorViewModel(
             _state.update {
                 when (write) {
                     is SopResult.Ok -> it.copy(saving = false, isNew = false, dirty = it.draft != d, review = null, toast = "Saved")
-                    is SopResult.Error -> it.copy(saving = false, review = null, error = write.message)
+                    // Deleted elsewhere since it was opened: the next Save creates it again.
+                    is SopResult.Error -> it.copy(saving = false, review = null, error = write.message, isNew = it.isNew || write.message == pt.tiago.zerodroid.data.sop.DELETED_ELSEWHERE)
                     SopResult.Forbidden -> it.copy(saving = false, review = null, error = "Your sign-in can't edit workflows")
                     SopResult.Unavailable -> it.copy(saving = false, review = null, error = "The daemon can't save workflows right now")
                 }

@@ -263,6 +263,27 @@ class SopEditorViewModelTest {
     }
 
     @Test
+    fun saveOfDeletedWorkflowTurnsIntoCreate() = runTest {
+        val c = rpc().apply { fail("sops/save", pt.tiago.zerodroid.rpc.RpcCodes.SOP_NOT_FOUND, "gone") }
+        val v = vm(c)
+        v.edit { SopDraft.set(it, "description", JsonPrimitive("z")) }
+        v.save(); runCurrent()
+        assertTrue(v.state.value.isNew)
+        assertEquals("This workflow was deleted elsewhere. Save again to create it.", v.state.value.error)
+        v.save(); runCurrent()
+        assertTrue("sops/create" in c.methods())
+    }
+
+    @Test
+    fun selectedTabLivesInTheViewModel() = runTest {
+        val v = vm(rpc())
+        v.startConnect(1, PortRole.Next)
+        v.selectTab(2)
+        assertEquals(2, v.state.value.tab)
+        assertEquals(EditorMode.Browse, v.state.value.mode)
+    }
+
+    @Test
     fun addStepOpensIt() = runTest {
         val v = vm(rpc())
         v.addStep()

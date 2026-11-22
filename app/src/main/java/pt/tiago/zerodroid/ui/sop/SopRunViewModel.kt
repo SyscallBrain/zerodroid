@@ -57,9 +57,15 @@ class SopRunViewModel(
     val state: StateFlow<RunState> = _state.asStateFlow()
     private var poll: Job? = null
 
+    private var errorsInARow = 0
+
     init {
-        scope.launch { (repo.graph(name) as? SopResult.Ok)?.let { g -> _state.update { it.copy(graph = g.value) } } }
+        scope.launch { loadGraph() }
         scope.launch { (repo.get(name) as? SopResult.Ok)?.let { d -> _state.update { it.copy(draft = d.value) } } }
+    }
+
+    private suspend fun loadGraph() {
+        (repo.graph(name) as? SopResult.Ok)?.let { g -> _state.update { it.copy(graph = g.value) } }
     }
 
     fun start() {
@@ -80,6 +86,8 @@ class SopRunViewModel(
     /** One poll; false when polling should end. */
     private suspend fun refresh(): Boolean = when (val r = repo.overlay(name, runId)) {
         is SopResult.Ok -> {
+            errorsInARow = 0
+            if (_state.value.graph == null) loadGraph() // the first load may have failed
             _state.update { it.copy(overlay = r.value, error = null) }
             !isTerminalRun(r.value.status)
         }
@@ -88,7 +96,11 @@ class SopRunViewModel(
         is SopResult.Error -> if (r.message.contains("not found", ignoreCase = true)) {
             _state.update { it.copy(gone = true) }; false
         } else {
-            _state.update { it.copy(error = r.message) }; true
+            // Keep trying through a blip, but not forever (e.g. the workflow was deleted meanwhile).
+            errorsInARow++
+            val giveUp = errorsInARow >= 3
+            _state.update { it.copy(error = r.message, gone = giveUp) }
+            !giveUp
         }
     }
 

@@ -150,8 +150,11 @@ fun SopSettingsTab(vm: SopEditorViewModel, s: EditorState) {
 @Composable
 private fun NumberField(label: String, value: Long?, onChange: (Long) -> Unit) {
     FieldLabel(label)
+    // Local text so the field can be emptied while typing; only whole numbers reach the draft.
+    var text by androidx.compose.runtime.remember { mutableStateOf(value?.toString().orEmpty()) }
+    androidx.compose.runtime.LaunchedEffect(value) { if (text.toLongOrNull() != value && !(text.isEmpty() && value == null)) text = value?.toString().orEmpty() }
     ZcTextField(
-        value?.toString().orEmpty(), { t -> t.filter(Char::isDigit).take(9).toLongOrNull()?.let(onChange) }, "0",
+        text, { t -> text = t.filter(Char::isDigit).take(9); text.toLongOrNull()?.let(onChange) }, "0",
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.width(140.dp),
     )
 }
