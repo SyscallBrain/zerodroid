@@ -6,13 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-22
+
 ### Added
 
-- Canvas: what agents draw with the `canvas` tool in the phone's chats is
-  saved on the phone, per daemon, with up to 50 frames per canvas. A Home
-  card (which can be hidden) opens the list; HTML and SVG frames show in a
-  sandboxed web view, Markdown and text natively, and a canvas tool call in
-  the chat opens the frame it drew.
+- Canvas: what agents draw with the `canvas` tool in the phone's chats and
+  code sessions is saved on the phone, per daemon, with up to 50 frames per
+  canvas, so it survives daemon restarts (the daemon keeps canvases in
+  memory only). Open them from a Home card (which can be hidden), from the
+  canvas tool call while it is on screen, or from a canvas icon at the top
+  of the chat that drew them. HTML and SVG open in a sandboxed web view with
+  pinch to zoom, and pages wider than the phone are zoomed out to fit;
+  Markdown and text are shown natively. Chat history comes back from the
+  daemon as text only, so in chats a frame is saved only when the app sees
+  it live.
 
 ## [0.7.0] - 2026-11-22
 
@@ -95,7 +102,8 @@ First public release.
 - Release APKs built, signed and published by GitHub Actions, with
   `SHA256SUMS` and signed build provenance.
 
-[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.4.1...v0.5.0
