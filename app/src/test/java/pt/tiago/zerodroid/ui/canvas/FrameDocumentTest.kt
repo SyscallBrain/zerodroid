@@ -16,7 +16,7 @@ class FrameDocumentTest {
 
     @Test
     fun fullHtmlKeepsItsContent() =
-        assertEquals("<HTML><meta name=\"color-scheme\" content=\"dark\"><body>x</body></HTML>", frameDocument("html", "<HTML><body>x</body></HTML>", "#000000"))
+        assertTrue(frameDocument("html", "<HTML><body>x</body></HTML>", "#000000")!!.let { it.startsWith("<HTML><meta name=\"color-scheme\"") && it.endsWith("<body>x</body></HTML>") })
 
     @Test
     fun svgIsCentredAndScaled() {
@@ -45,5 +45,23 @@ class FrameDocumentTest {
         assertTrue(doc.startsWith("<!DOCTYPE html><html><head><meta name=\"color-scheme\" content=\"dark\">"))
         val noHead = frameDocument("html", "<html lang=\"pt\"><body>x</body></html>", "#000000")!!
         assertTrue(noHead.startsWith("<html lang=\"pt\"><meta name=\"color-scheme\" content=\"dark\">"))
+    }
+
+    @Test
+    fun everyWebDocumentFitsItsWidth() {
+        val full = frameDocument("html", "<!DOCTYPE html><html><head><title>t</title></head><body>x</body></html>", "#000000")!!
+        val fragment = frameDocument("html", "<b>x</b>", "#000000")!!
+        val svg = frameDocument("svg", "<svg/>", "#000000")!!
+        listOf(full, fragment, svg).forEach { assertTrue(it.contains(FIT_SCRIPT)) }
+        // Script after the content it measures is not needed: it runs on load; but it must sit inside the document.
+        assertTrue(full.indexOf(FIT_SCRIPT) < full.indexOf("</html>"))
+    }
+
+    @Test
+    fun fullDocumentWithoutViewportGetsOne() {
+        val doc = frameDocument("html", "<!DOCTYPE html><html><head></head><body>x</body></html>", "#000000")!!
+        assertEquals(1, Regex("name=\"viewport\"").findAll(doc).count())
+        val own = frameDocument("html", "<html><head><meta name=\"viewport\" content=\"width=500\"></head></html>", "#000000")!!
+        assertEquals(1, Regex("name=\"viewport\"").findAll(own).count())
     }
 }
