@@ -191,6 +191,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
     var agentAlias by rememberSaveable { mutableStateOf<String?>(null) }
     var configJump by remember { mutableStateOf<pt.tiago.zerodroid.ui.config.ConfigRoute?>(null) }
     var sopStack by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.sop.SopStackSaver) { mutableStateOf(emptyList<pt.tiago.zerodroid.ui.sop.SopRoute>()) }
+    var canvasRoute by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.canvas.CanvasRouteSaver) { mutableStateOf<pt.tiago.zerodroid.ui.canvas.CanvasRoute?>(null) }
     var notifRationale by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -227,6 +228,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
     val tabNames = listOf("home", "chats", "code", "inbox", "config")
     val label = when {
         gallery -> "gallery"
+        canvasRoute != null -> "canvas"
         sopStack.isNotEmpty() -> "workflows"
         agentAlias != null -> "agent"
         chatId != null -> "chat"
@@ -340,6 +342,10 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                 configJump = pt.tiago.zerodroid.ui.config.ConfigRoute.Field("sop", "", "sop.sops_dir")
             },
         )
+    }
+
+    canvasRoute?.let { route ->
+        pt.tiago.zerodroid.ui.canvas.CanvasHost(route, onRoute = { canvasRoute = it }, onOpenChat = openChat)
     }
 
     if (gallery && debug) {
