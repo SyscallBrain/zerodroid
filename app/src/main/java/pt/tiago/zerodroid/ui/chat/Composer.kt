@@ -76,6 +76,9 @@ fun Composer(
     onSend: (String, List<OutgoingImage>) -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
+    model: pt.tiago.zerodroid.data.ModelLabel? = null,
+    contextFraction: Float? = null,
+    onModelClick: () -> Unit = {},
 ) {
     // The draft lives in the session, so leaving the chat keeps what was typed and picked.
     val text by draftText.collectAsState()
@@ -100,6 +103,7 @@ fun Composer(
     }
     val shape = RoundedCornerShape(22.dp)
     Column(modifier.fillMaxWidth()) {
+    model?.let { ModelStrip(it, onModelClick) }
     if (images.isNotEmpty() || loadingImages || imageError != null || imageNotice != null) {
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 6.dp),
@@ -130,11 +134,11 @@ fun Composer(
             .padding(horizontal = 12.dp, vertical = 8.dp)
             .background(ZcTokens.surface, shape)
             .border(1.dp, if (running) ZcTokens.accentStart.copy(alpha = 0.3f) else ZcTokens.hairlineStrong, shape)
-            .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            .padding(start = 16.dp, end = 3.dp, top = 3.dp, bottom = 3.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
         Box(
-            Modifier.padding(end = 4.dp).size(40.dp).clip(CircleShape)
+            Modifier.padding(end = 4.dp, top = 3.dp, bottom = 3.dp).size(40.dp).clip(CircleShape)
                 .clickable(enabled = enabled && !running && images.size < MAX_IMAGES, role = Role.Button) {
                     picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 },
@@ -142,7 +146,7 @@ fun Composer(
         ) {
             Icon(ZcIcons.Image, "Attach images", tint = if (enabled && !running) ZcTokens.muted else ZcTokens.faint, modifier = Modifier.size(20.dp))
         }
-        Box(Modifier.weight(1f).heightIn(min = 40.dp).padding(vertical = 9.dp), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.weight(1f).heightIn(min = 46.dp).padding(vertical = 12.dp), contentAlignment = Alignment.CenterStart) {
             if (text.isEmpty()) {
                 Text(
                     when {
@@ -168,6 +172,8 @@ fun Composer(
         Spacer(Modifier.width(8.dp))
         val showStop = running && text.isBlank()
         val canSend = enabled && !loadingImages && imageError == null && (text.isNotBlank() || (images.isNotEmpty() && !running))
+        // The context ring adds 3dp around the 40dp button; the row padding drops from 6dp to 3dp so the composer keeps its height.
+        ContextRing(contextFraction, Modifier.size(46.dp)) {
         AnimatedContent(
             targetState = showStop,
             transitionSpec = { (fadeIn(tween(150)) + scaleIn(initialScale = 0.8f)) togetherWith fadeOut(tween(100)) },
@@ -200,6 +206,7 @@ fun Composer(
                     modifier = Modifier.size(if (stop) 18.dp else 20.dp),
                 )
             }
+        }
         }
     }
     }

@@ -125,7 +125,7 @@ fun ChatScreen(
             modifier = Modifier.clickableNoRipple { sheet = true },
             navigation = { ZcIconButton(ZcIcons.Back, "Back", onClick = onBack) },
             leading = { Avatar(viewModel.agentAlias, size = 34.dp) },
-            subtitle = { LiveLine(s.turnRunning, s.items.lastOrNull(), conn, model, s.contextUsed, s.contextMax) },
+            subtitle = { LiveLine(s.turnRunning, s.items.lastOrNull(), conn) },
             actions = { ZcIconButton(ZcIcons.More, "Session") { sheet = true } },
         )
         HorizontalDivider(color = ZcTokens.hairline)
@@ -193,6 +193,9 @@ fun ChatScreen(
             onSend = { text, images -> onFirstSend(); viewModel.send(text, images) },
             onStop = viewModel::stop,
             modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars).imePadding(),
+            model = model,
+            contextFraction = contextFraction(s.contextUsed, s.contextMax),
+            onModelClick = { sheet = true },
         )
     }
 
@@ -246,19 +249,9 @@ fun ChatScreen(
 }
 
 
-private fun contextPercent(used: Long?, max: Long?): String? =
-    if (used != null && max != null && max > 0) "${(used * 100 / max).coerceIn(0, 100)}%" else null
-
-/** While a turn runs: what the agent is doing. Idle: the model and provider answering, mono, with a dot when overridden. */
+/** The header's status line: what the agent is doing, or idle/offline. Model, effort and context live by the composer. */
 @Composable
-private fun LiveLine(
-    running: Boolean,
-    last: ChatItem?,
-    conn: ConnState,
-    model: pt.tiago.zerodroid.data.ModelLabel?,
-    contextUsed: Long?,
-    contextMax: Long?,
-) {
+private fun LiveLine(running: Boolean, last: ChatItem?, conn: ConnState) {
     val live: String? = when {
         conn !is ConnState.Ready -> null
         running && last is ChatItem.Tool && last.status == ToolStatus.Running -> "running ${last.name}"
@@ -274,28 +267,6 @@ private fun LiveLine(
                 pt.tiago.zerodroid.ui.kit.StatusDot(Tone.Live, pulse = true, size = 6.dp)
                 Spacer(Modifier.width(6.dp))
                 Text(live, style = ZcType.caption.copy(color = ZcTokens.accentStart), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            model != null -> {
-                if (model.overridden) {
-                    pt.tiago.zerodroid.ui.kit.StatusDot(Tone.Live, size = 6.dp)
-                    Spacer(Modifier.width(6.dp))
-                }
-                // Model only (the provider is in the session sheet), the configured reasoning level, and how full the context is.
-                Text(
-                    model.model,
-                    style = ZcType.monoSmall.copy(color = ZcTokens.muted), maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                model.reasoning.label?.let {
-                    Text(" · $it", style = ZcType.monoSmall.copy(color = ZcTokens.faint), maxLines = 1)
-                }
-                contextPercent(contextUsed, contextMax)?.let { pct ->
-                    Text(
-                        " · $pct",
-                        style = ZcType.monoSmall.copy(color = if (pct.removeSuffix("%").toIntOrNull()?.let { it >= 85 } == true) ZcTokens.attention else ZcTokens.faint),
-                        maxLines = 1,
-                    )
-                }
             }
             else -> Text("idle", style = ZcType.caption.copy(color = ZcTokens.faint))
         }
