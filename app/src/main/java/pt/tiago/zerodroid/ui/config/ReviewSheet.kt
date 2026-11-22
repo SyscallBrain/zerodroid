@@ -45,7 +45,9 @@ import pt.tiago.zerodroid.data.config.diffLine
 import pt.tiago.zerodroid.rpc.ConnState
 import pt.tiago.zerodroid.rpc.proto.ApplyOutcome
 import pt.tiago.zerodroid.ui.kit.ConnectionBanner
+import pt.tiago.zerodroid.ui.kit.NoSheetInsets
 import pt.tiago.zerodroid.ui.kit.SectionHeader
+import pt.tiago.zerodroid.ui.kit.SheetBody
 import pt.tiago.zerodroid.ui.kit.Tone
 import pt.tiago.zerodroid.ui.kit.ZcGhostButton
 import pt.tiago.zerodroid.ui.kit.ZcPrimaryButton
@@ -91,91 +93,94 @@ fun ReviewSheet(onDismiss: () -> Unit) {
         containerColor = ZcTokens.surface,
         scrimColor = ZcTokens.scrim,
         dragHandle = { Box(Modifier.padding(top = 10.dp).size(36.dp, 4.dp).background(ZcTokens.hairlineStrong, RoundedCornerShape(2.dp))) },
+        contentWindowInsets = NoSheetInsets,
     ) {
-        Column(Modifier.navigationBarsPadding().padding(horizontal = ZcTokens.gutter).padding(bottom = 16.dp)) {
-            Text(if (showResults) "Applied" else "Review changes", style = ZcType.title, modifier = Modifier.padding(vertical = 12.dp))
-            if (showResults) {
-                val outcomes = report!!.outcomes
-                LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                    items(outcomes.entries.toList(), key = { it.key }) { (path, o) ->
-                        val (label, tone) = outcomeText(o)
-                        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(if (tone == Tone.Danger) ZcIcons.Close else ZcIcons.Check, null, tint = tone.color(), modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Text(path, style = ZcType.monoSmall, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(label, style = ZcType.caption.copy(color = tone.color()))
+        SheetBody {
+            Column(Modifier.navigationBarsPadding().padding(horizontal = ZcTokens.gutter).padding(bottom = 16.dp)) {
+                Text(if (showResults) "Applied" else "Review changes", style = ZcType.title, modifier = Modifier.padding(vertical = 12.dp))
+                if (showResults) {
+                    val outcomes = report!!.outcomes
+                    LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                        items(outcomes.entries.toList(), key = { it.key }) { (path, o) ->
+                            val (label, tone) = outcomeText(o)
+                            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(if (tone == Tone.Danger) ZcIcons.Close else ZcIcons.Check, null, tint = tone.color(), modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text(path, style = ZcType.monoSmall, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(label, style = ZcType.caption.copy(color = tone.color()))
+                            }
+                        }
+                        if (outcomes.isEmpty()) item("saved") { Text("Saved. The daemon reported no per-setting status.", style = ZcType.small) }
+                    }
+                    when (val g = gate) {
+                        ReloadGate.NotNeeded -> Unit
+                        is ReloadGate.Blocked -> {
+                            Spacer(Modifier.height(12.dp))
+                            ZcGhostButton("Reload now", enabled = false, modifier = Modifier.fillMaxWidth()) {}
+                            Text("${g.running} turn${if (g.running == 1) " is" else "s are"} running. Reload when they finish.", style = ZcType.caption.copy(color = ZcTokens.attention), modifier = Modifier.padding(top = 6.dp))
+                        }
+                        ReloadGate.Allowed -> {
+                            Spacer(Modifier.height(12.dp))
+                            ZcPrimaryButton("Reload now", icon = ZcIcons.Refresh, modifier = Modifier.fillMaxWidth()) { confirmReload = true }
                         }
                     }
-                    if (outcomes.isEmpty()) item("saved") { Text("Saved. The daemon reported no per-setting status.", style = ZcType.small) }
+                    reloadError?.let { Text("Reload failed: $it", style = ZcType.caption.copy(color = ZcTokens.danger), modifier = Modifier.padding(top = 6.dp)) }
+                    Spacer(Modifier.height(8.dp))
+                    ZcGhostButton("Done", modifier = Modifier.fillMaxWidth()) { editor.dismissReport(); onDismiss() }
+                    return@Column
                 }
-                when (val g = gate) {
-                    ReloadGate.NotNeeded -> Unit
-                    is ReloadGate.Blocked -> {
-                        Spacer(Modifier.height(12.dp))
-                        ZcGhostButton("Reload now", enabled = false, modifier = Modifier.fillMaxWidth()) {}
-                        Text("${g.running} turn${if (g.running == 1) " is" else "s are"} running. Reload when they finish.", style = ZcType.caption.copy(color = ZcTokens.attention), modifier = Modifier.padding(top = 6.dp))
-                    }
-                    ReloadGate.Allowed -> {
-                        Spacer(Modifier.height(12.dp))
-                        ZcPrimaryButton("Reload now", icon = ZcIcons.Refresh, modifier = Modifier.fillMaxWidth()) { confirmReload = true }
-                    }
-                }
-                reloadError?.let { Text("Reload failed: $it", style = ZcType.caption.copy(color = ZcTokens.danger), modifier = Modifier.padding(top = 6.dp)) }
-                Spacer(Modifier.height(8.dp))
-                ZcGhostButton("Done", modifier = Modifier.fillMaxWidth()) { editor.dismissReport(); onDismiss() }
-                return@Column
-            }
 
-            if (entries.isEmpty()) {
-                Text("Nothing to apply.", style = ZcType.small)
-                return@Column
-            }
-            val result = report?.result
-            ConnectionBanner(result is ApplyResult.Failed && report?.conflicts.isNullOrEmpty(), (result as? ApplyResult.Failed)?.message.orEmpty(), Tone.Danger)
-            val banner = pt.tiago.zerodroid.data.config.ConfigEditor.rejectionBanner(result, entries.map { it.path }.toSet())
-            ConnectionBanner(banner != null, "The daemon refused the changes: ${banner.orEmpty()}", Tone.Danger)
-            ConnectionBanner(readOnly, "This device can view settings but not change them.", Tone.Attention)
-            LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                entries.groupBy { it.sectionKey }.forEach { (key, list) ->
-                    item("h-$key") { SectionHeader(sections.firstOrNull { it.key == key }?.label ?: key) }
-                    items(list, key = { it.path }) { e ->
-                        val (old, new) = diffLine(e)
-                        val conflict = e.path in report?.conflicts.orEmpty() && e.path !in confirmed
-                        val rejected = (result as? ApplyResult.Rejected)?.takeIf { it.prop == e.path }
-                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(e.path, style = ZcType.monoSmall.copy(color = ZcTokens.muted), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Icon(ZcIcons.Close, "Discard ${e.label}", tint = ZcTokens.faint, modifier = Modifier.padding(start = 8.dp).size(18.dp).clickable { editor.draft.unstage(e.path) })
+                if (entries.isEmpty()) {
+                    Text("Nothing to apply.", style = ZcType.small)
+                    return@Column
+                }
+                val result = report?.result
+                ConnectionBanner(result is ApplyResult.Failed && report?.conflicts.isNullOrEmpty(), (result as? ApplyResult.Failed)?.message.orEmpty(), Tone.Danger)
+                val banner = pt.tiago.zerodroid.data.config.ConfigEditor.rejectionBanner(result, entries.map { it.path }.toSet())
+                ConnectionBanner(banner != null, "The daemon refused the changes: ${banner.orEmpty()}", Tone.Danger)
+                ConnectionBanner(readOnly, "This device can view settings but not change them.", Tone.Attention)
+                LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                    entries.groupBy { it.sectionKey }.forEach { (key, list) ->
+                        item("h-$key") { SectionHeader(sections.firstOrNull { it.key == key }?.label ?: key) }
+                        items(list, key = { it.path }) { e ->
+                            val (old, new) = diffLine(e)
+                            val conflict = e.path in report?.conflicts.orEmpty() && e.path !in confirmed
+                            val rejected = (result as? ApplyResult.Rejected)?.takeIf { it.prop == e.path }
+                            Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(e.path, style = ZcType.monoSmall.copy(color = ZcTokens.muted), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Icon(ZcIcons.Close, "Discard ${e.label}", tint = ZcTokens.faint, modifier = Modifier.padding(start = 8.dp).size(18.dp).clickable { editor.draft.unstage(e.path) })
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(old, style = ZcType.mono.copy(color = ZcTokens.faint), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                    Text("  →  ", style = ZcType.mono.copy(color = ZcTokens.faint))
+                                    Text(new, style = ZcType.mono.copy(color = ZcTokens.accentStart), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                }
+                                if (conflict) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                                    Text("Changed on the daemon since you edited it", style = ZcType.caption.copy(color = ZcTokens.attention), modifier = Modifier.weight(1f))
+                                    ZcGhostButton("Keep mine", compact = true) { confirmed = confirmed + e.path }
+                                }
+                                if (rejected != null) Text("Refused: ${rejected.reason}", style = ZcType.caption.copy(color = ZcTokens.danger), modifier = Modifier.padding(top = 4.dp))
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(old, style = ZcType.mono.copy(color = ZcTokens.faint), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                Text("  →  ", style = ZcType.mono.copy(color = ZcTokens.faint))
-                                Text(new, style = ZcType.mono.copy(color = ZcTokens.accentStart), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                            }
-                            if (conflict) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                                Text("Changed on the daemon since you edited it", style = ZcType.caption.copy(color = ZcTokens.attention), modifier = Modifier.weight(1f))
-                                ZcGhostButton("Keep mine", compact = true) { confirmed = confirmed + e.path }
-                            }
-                            if (rejected != null) Text("Refused: ${rejected.reason}", style = ZcType.caption.copy(color = ZcTokens.danger), modifier = Modifier.padding(top = 4.dp))
                         }
                     }
                 }
-            }
-            if (editor.draft.lostSecrets) {
-                Text("Secret values typed before the app was closed were not kept. Enter them again.", style = ZcType.caption.copy(color = ZcTokens.attention), modifier = Modifier.padding(top = 8.dp))
-            }
-            Text(
-                "The daemon checks these when you apply; if it refuses one, nothing is changed.",
-                style = ZcType.caption.copy(color = ZcTokens.faint), modifier = Modifier.padding(top = 10.dp),
-            )
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ZcGhostButton("Discard all", modifier = Modifier.weight(1f)) { discardAll = true }
-                ZcPrimaryButton(
-                    if (applying) "Applying…" else "Apply ${entries.size} change${if (entries.size == 1) "" else "s"}",
-                    enabled = armed && !applying && !readOnly && conn is ConnState.Ready,
-                    modifier = Modifier.weight(1.4f),
-                ) { editor.applyInBackground(confirmed) }
+                if (editor.draft.lostSecrets) {
+                    Text("Secret values typed before the app was closed were not kept. Enter them again.", style = ZcType.caption.copy(color = ZcTokens.attention), modifier = Modifier.padding(top = 8.dp))
+                }
+                Text(
+                    "The daemon checks these when you apply; if it refuses one, nothing is changed.",
+                    style = ZcType.caption.copy(color = ZcTokens.faint), modifier = Modifier.padding(top = 10.dp),
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ZcGhostButton("Discard all", modifier = Modifier.weight(1f)) { discardAll = true }
+                    ZcPrimaryButton(
+                        if (applying) "Applying…" else "Apply ${entries.size} change${if (entries.size == 1) "" else "s"}",
+                        enabled = armed && !applying && !readOnly && conn is ConnState.Ready,
+                        modifier = Modifier.weight(1.4f),
+                    ) { editor.applyInBackground(confirmed) }
+                }
             }
         }
     }

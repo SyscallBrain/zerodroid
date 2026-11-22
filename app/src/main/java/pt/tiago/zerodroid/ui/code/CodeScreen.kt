@@ -58,6 +58,8 @@ import pt.tiago.zerodroid.data.parentFolder
 import pt.tiago.zerodroid.ui.kit.Avatar
 import pt.tiago.zerodroid.ui.kit.ConnectionBanner
 import pt.tiago.zerodroid.ui.kit.EmptyState
+import pt.tiago.zerodroid.ui.kit.NoSheetInsets
+import pt.tiago.zerodroid.ui.kit.SheetBody
 import pt.tiago.zerodroid.ui.kit.Skeleton
 import pt.tiago.zerodroid.ui.kit.StatusDot
 import pt.tiago.zerodroid.ui.kit.Tone
@@ -120,10 +122,13 @@ fun CodeScreen(viewModel: CodeViewModel, active: Boolean = true, onOpen: (String
             containerColor = ZcTokens.surface,
             scrimColor = ZcTokens.scrim,
             dragHandle = { SheetHandle() },
+            contentWindowInsets = NoSheetInsets,
         ) {
-            val b = m.browse
-            if (b != null) FolderBrowserContent(b, m.recent, creating = m.creating != null, viewModel = viewModel, onOpen = onOpen)
-            else AgentPickerContent(m, viewModel)
+            SheetBody {
+                val b = m.browse
+                if (b != null) FolderBrowserContent(b, m.recent, creating = m.creating != null, viewModel = viewModel, onOpen = onOpen)
+                else AgentPickerContent(m, viewModel)
+            }
         }
     }
 

@@ -47,6 +47,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.tiago.zerodroid.ui.kit.Avatar
 import pt.tiago.zerodroid.ui.kit.ConnectionBanner
 import pt.tiago.zerodroid.ui.kit.EmptyState
+import pt.tiago.zerodroid.ui.kit.NoSheetInsets
+import pt.tiago.zerodroid.ui.kit.SheetBody
 import pt.tiago.zerodroid.ui.kit.Skeleton
 import pt.tiago.zerodroid.ui.kit.StatusDot
 import pt.tiago.zerodroid.ui.kit.Tone
@@ -123,45 +125,48 @@ fun ChatsScreen(viewModel: ChatsViewModel, active: Boolean = true, onOpen: (Stri
             containerColor = ZcTokens.surface,
             scrimColor = ZcTokens.scrim,
             dragHandle = { Box(Modifier.padding(top = 10.dp).size(36.dp, 4.dp).background(ZcTokens.hairlineStrong, RoundedCornerShape(2.dp))) },
+            contentWindowInsets = NoSheetInsets,
         ) {
-            Column(Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
-                Text("New chat", style = ZcType.title, modifier = Modifier.padding(horizontal = ZcTokens.gutter, vertical = 12.dp))
-                var agentQuery by remember { mutableStateOf("") }
-                val pins by pt.tiago.zerodroid.data.ZeroDroidConnection.pins.pins.collectAsStateWithLifecycle()
-                ZcTextField(
-                    agentQuery, { agentQuery = it }, "Search agents", leadingIcon = ZcIcons.Search,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = ZcTokens.gutter),
-                )
-                Spacer(Modifier.height(8.dp))
-                val shownAgents = pt.tiago.zerodroid.data.filterAgents(m.agents, agentQuery, pins)
-                if (m.agentsLoading) {
-                    repeat(4) { SkeletonRow() }
-                } else if (shownAgents.isEmpty()) {
-                    Text(if (m.agents.isEmpty()) "No enabled agents on this daemon." else "No agent matches \"$agentQuery\".", style = ZcType.small, modifier = Modifier.padding(ZcTokens.gutter))
-                } else {
-                    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 460.dp)) {
-                        items(shownAgents, key = { it.alias }) { a ->
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable(enabled = m.creating == null) {
-                                        viewModel.newSession(a.alias) { id, alias ->
-                                            picker = false
-                                            onOpen(id, alias)
+            SheetBody {
+                Column(Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
+                    Text("New chat", style = ZcType.title, modifier = Modifier.padding(horizontal = ZcTokens.gutter, vertical = 12.dp))
+                    var agentQuery by remember { mutableStateOf("") }
+                    val pins by pt.tiago.zerodroid.data.ZeroDroidConnection.pins.pins.collectAsStateWithLifecycle()
+                    ZcTextField(
+                        agentQuery, { agentQuery = it }, "Search agents", leadingIcon = ZcIcons.Search,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = ZcTokens.gutter),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    val shownAgents = pt.tiago.zerodroid.data.filterAgents(m.agents, agentQuery, pins)
+                    if (m.agentsLoading) {
+                        repeat(4) { SkeletonRow() }
+                    } else if (shownAgents.isEmpty()) {
+                        Text(if (m.agents.isEmpty()) "No enabled agents on this daemon." else "No agent matches \"$agentQuery\".", style = ZcType.small, modifier = Modifier.padding(ZcTokens.gutter))
+                    } else {
+                        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 460.dp)) {
+                            items(shownAgents, key = { it.alias }) { a ->
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable(enabled = m.creating == null) {
+                                            viewModel.newSession(a.alias) { id, alias ->
+                                                picker = false
+                                                onOpen(id, alias)
+                                            }
                                         }
+                                        .padding(horizontal = ZcTokens.gutter, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Avatar(a.alias, size = 36.dp)
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(a.alias, style = ZcType.bodyStrong)
+                                        if (a.channels.isNotEmpty()) Text(a.channels.joinToString(", "), style = ZcType.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
-                                    .padding(horizontal = ZcTokens.gutter, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Avatar(a.alias, size = 36.dp)
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(a.alias, style = ZcType.bodyStrong)
-                                    if (a.channels.isNotEmpty()) Text(a.channels.joinToString(", "), style = ZcType.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    if (a.alias in pins) Icon(ZcIcons.StarFilled, null, tint = ZcTokens.attention, modifier = Modifier.padding(end = 8.dp).size(14.dp))
+                                    if (m.creating == a.alias) Skeleton(Modifier.size(56.dp, 12.dp))
+                                    else Icon(ZcIcons.Chevron, null, tint = ZcTokens.faint, modifier = Modifier.size(18.dp))
                                 }
-                                if (a.alias in pins) Icon(ZcIcons.StarFilled, null, tint = ZcTokens.attention, modifier = Modifier.padding(end = 8.dp).size(14.dp))
-                                if (m.creating == a.alias) Skeleton(Modifier.size(56.dp, 12.dp))
-                                else Icon(ZcIcons.Chevron, null, tint = ZcTokens.faint, modifier = Modifier.size(18.dp))
                             }
                         }
                     }
