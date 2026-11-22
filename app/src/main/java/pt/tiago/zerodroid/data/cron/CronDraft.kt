@@ -26,10 +26,16 @@ data class CronDraft(
     val channel: String = "",
     val to: String = "",
     val bestEffort: Boolean = true,
+    /** Carried, not edited: a thread or topic an agent set on the delivery. */
+    val threadId: String = "",
+    /** `cron`, `at` or `every`; only `cron` schedules are edited (the others have no expression). */
+    val scheduleKind: String = "cron",
 ) {
+    private val cronSchedule: Boolean get() = scheduleKind == "cron"
+
     fun problems(): List<String> = buildList {
         if (agent.isBlank()) add("Pick an agent")
-        if (expr.isBlank()) add("Enter a schedule")
+        if (cronSchedule && expr.isBlank()) add("Enter a schedule")
         if (agentJob) { if (prompt.isBlank()) add("Enter a prompt") } else if (command.isBlank()) add("Enter a command")
         if (announce) {
             if (channel.isBlank()) add("Pick a channel")
@@ -56,7 +62,7 @@ data class CronDraft(
 
     /** Only what changed against [original]; null when nothing did. */
     fun toPatch(id: String, original: CronDraft): CronPatchParams? {
-        val scheduleChanged = expr.trim() != original.expr.trim() || tz.trim() != original.tz.trim()
+        val scheduleChanged = original.cronSchedule && (expr.trim() != original.expr.trim() || tz.trim() != original.tz.trim())
         val agentFields = original.agentJob
         val modelChanged = agentFields && model.trim() != original.model.trim()
         val toolsChanged = agentFields && tools() != original.tools()
@@ -84,7 +90,7 @@ data class CronDraft(
 
     private fun tools(): List<String> = allowedTools.split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
-    private fun delivery() = CronDelivery("announce", channel.trim(), to.trim(), bestEffort)
+    private fun delivery() = CronDelivery("announce", channel.trim(), to.trim(), bestEffort, threadId.ifEmpty { null })
 
     companion object {
         fun from(job: CronJob): CronDraft = CronDraft(
@@ -103,6 +109,8 @@ data class CronDraft(
             channel = job.delivery.channel.orEmpty(),
             to = job.delivery.to.orEmpty(),
             bestEffort = job.delivery.bestEffort,
+            threadId = job.delivery.threadId.orEmpty(),
+            scheduleKind = job.schedule?.kind ?: "cron",
         )
     }
 }

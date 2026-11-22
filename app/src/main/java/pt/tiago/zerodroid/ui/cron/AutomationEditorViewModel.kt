@@ -20,6 +20,7 @@ const val NEEDS_UPDATE_AGENT = "The daemon needs the automation update to create
 const val UNCONFIRMED_SAVE = "Couldn't confirm the job was saved. Check the list, then try again."
 
 data class EditorState(
+    val isNew: Boolean = true,
     val loading: Boolean = true,
     val draft: CronDraft = CronDraft(),
     val original: CronDraft = CronDraft(),
@@ -33,6 +34,8 @@ data class EditorState(
     val savedId: String? = null,
 ) {
     val dirty: Boolean get() = draft.dirty(original)
+    /** A failed load leaves nothing to save: the editor shows only the error. */
+    val canSave: Boolean get() = !loading && !saving && (isNew || (job != null && dirty))
     /** Only cron-expression schedules can be edited; `at`/`every` ones show read-only. */
     val scheduleEditable: Boolean get() = job?.schedule?.kind?.let { it == "cron" } ?: true
 }
@@ -43,7 +46,7 @@ class AutomationEditorViewModel(
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
-    private val _state = MutableStateFlow(EditorState())
+    private val _state = MutableStateFlow(EditorState(isNew = id == null))
     val state: StateFlow<EditorState> = _state.asStateFlow()
     private var loaded = false
 
@@ -76,6 +79,8 @@ class AutomationEditorViewModel(
     fun save() {
         val s = _state.value
         if (s.saving) return
+        // A job that failed to load has no original to patch against.
+        if (!s.isNew && s.job == null) return
         val problems = s.draft.problems()
         if (problems.isNotEmpty()) return _state.update { it.copy(problems = problems) }
         _state.update { it.copy(saving = true, error = null) }
@@ -83,6 +88,8 @@ class AutomationEditorViewModel(
     }
 
     private suspend fun add(d: CronDraft) {
+        // The ids before the add: if its reply is lost, only a job that wasn't there before can be it.
+        val before = (repo.list() as? CronResult.Ok)?.value?.map { it.id }?.toSet()
         when (val r = repo.add(d.toAdd())) {
             is CronResult.Ok ->
                 if (d.agentJob && !r.value.isAgent) {
@@ -94,7 +101,8 @@ class AutomationEditorViewModel(
             is CronResult.Error -> fail(r.message)
             is CronResult.Lost -> {
                 // The add may have landed with its reply lost: look before offering a retry.
-                val match = (repo.list() as? CronResult.Ok)?.value?.firstOrNull { matches(it, d) }
+                val match = if (before == null) null
+                else (repo.list() as? CronResult.Ok)?.value?.firstOrNull { it.id !in before && matches(it, d) }
                 if (match != null) done(match.id) else fail(UNCONFIRMED_SAVE)
             }
         }
@@ -124,7 +132,13 @@ class AutomationEditorViewModel(
     private fun reflects(j: CronJob, p: CronPatchParams): Boolean =
         (p.model == null || j.model == p.model) &&
             (p.clearModel != true || j.model == null) &&
-            (p.delivery == null || j.delivery.mode.equals(p.delivery.mode, ignoreCase = true)) &&
+            (p.delivery == null || sameDelivery(j.delivery, p.delivery)) &&
+            (p.allowedTools == null || j.allowedTools == p.allowedTools) &&
+            (p.clearAllowedTools != true || j.allowedTools == null) &&
             (p.sessionTarget == null || j.sessionTarget == p.sessionTarget) &&
             (p.usesMemory == null || j.usesMemory == p.usesMemory)
+
+    private fun sameDelivery(a: pt.tiago.zerodroid.rpc.proto.CronDelivery, b: pt.tiago.zerodroid.rpc.proto.CronDelivery): Boolean =
+        a.mode.equals(b.mode, ignoreCase = true) &&
+            (!b.mode.equals("announce", ignoreCase = true) || (a.channel == b.channel && a.to == b.to && a.bestEffort == b.bestEffort))
 }

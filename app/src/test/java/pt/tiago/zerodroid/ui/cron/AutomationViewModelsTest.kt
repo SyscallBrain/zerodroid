@@ -156,7 +156,15 @@ class AutomationViewModelsTest {
         val rpc = FakeCaller().apply {
             agents()
             handlers["cron/add"] = { throw java.util.concurrent.TimeoutException("slow") }
-            on("cron/list", """{"jobs":[${job("other", ""","command":"echo no"""")},${job("found", ""","name":"n","command":"echo hi"""")}]}""")
+            var lists = 0
+            handlers["cron/list"] = {
+                lists++
+                // Before the add: only the unrelated job. After: the new one landed.
+                ZdJson.parseToJsonElement(
+                    if (lists == 1) """{"jobs":[${job("other", ""","command":"echo no"""")}]}"""
+                    else """{"jobs":[${job("other", ""","command":"echo no"""")},${job("found", ""","name":"n","command":"echo hi"""")}]}""",
+                )
+            }
         }
         val v = editor(rpc); v.load(); advanceUntilIdle()
         v.update { it.copy(name = "n", expr = "0 9 * * *", command = "echo hi") }
@@ -210,5 +218,79 @@ class AutomationViewModelsTest {
         assertFalse(v.state.value.dirty)
         v.update { it.copy(name = "x") }
         assertTrue(v.state.value.dirty)
+    }
+
+    @Test
+    fun lostAddIgnoresPreexistingIdenticalJob() = runTest {
+        val rpc = FakeCaller().apply {
+            agents()
+            handlers["cron/add"] = { throw java.util.concurrent.TimeoutException("slow") }
+            on("cron/list", """{"jobs":[${job("old", ""","name":"n","command":"echo hi"""")}]}""")
+        }
+        val v = editor(rpc); v.load(); advanceUntilIdle()
+        v.update { it.copy(name = "n", expr = "0 9 * * *", command = "echo hi") }
+        v.save(); advanceUntilIdle()
+        assertEquals(UNCONFIRMED_SAVE, v.state.value.error)
+        assertNull(v.state.value.savedId)
+    }
+
+    @Test
+    fun editToolsOnOldDaemonShowsUpdateNeeded() = runTest {
+        val rpc = FakeCaller().apply {
+            agents()
+            on("cron/get", job("j1", ""","job_type":"agent","prompt":"p""""))
+            on("cron/patch", job("j1", ""","job_type":"agent","prompt":"p""""))
+        }
+        val v = editor(rpc, "j1"); v.load(); advanceUntilIdle()
+        v.update { it.copy(allowedTools = "shell") }
+        v.save(); advanceUntilIdle()
+        assertEquals(NEEDS_UPDATE_CHANGE, v.state.value.error)
+    }
+
+    @Test
+    fun editDeliveryTargetOnOldDaemonShowsUpdateNeeded() = runTest {
+        val announce = ""","job_type":"agent","prompt":"p","delivery":{"mode":"announce","channel":"telegram.main","to":"1"}"""
+        val rpc = FakeCaller().apply { agents(); on("cron/get", job("j1", announce)); on("cron/patch", job("j1", announce)) }
+        val v = editor(rpc, "j1"); v.load(); advanceUntilIdle()
+        v.update { it.copy(to = "2") }
+        v.save(); advanceUntilIdle()
+        assertEquals(NEEDS_UPDATE_CHANGE, v.state.value.error)
+    }
+
+    @Test
+    fun failedLoadIsNotANewJob() = runTest {
+        val rpc = FakeCaller().apply { agents(); fail("cron/get", RpcCodes.INVALID_PARAMS, "Cron job not found: j1") }
+        val v = editor(rpc, "j1"); v.load(); advanceUntilIdle()
+        assertFalse(v.state.value.isNew)
+        assertFalse(v.state.value.canSave)
+        v.save(); advanceUntilIdle()
+        assertFalse("cron/patch" in rpc.methods())
+    }
+
+    @Test
+    fun reopenedDetailSeesTheRunInFlight() = runTest {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var triggers = 0
+        val caller = pt.tiago.zerodroid.rpc.RpcCaller { method, _, _ ->
+            when (method) {
+                "cron/get" -> ZdJson.parseToJsonElement(job("j1"))
+                "cron/runs" -> ZdJson.parseToJsonElement("""{"runs":[]}""")
+                "cron/trigger" -> { triggers++; gate.await(); ZdJson.parseToJsonElement("""{"id":"j1","success":true,"status":"ok","output":"done"}""") }
+                else -> ZdJson.parseToJsonElement("{}")
+            }
+        }
+        val runs = CronRunRegistry()
+        val r = CronRepository(caller, ConfigRepository(caller))
+        val first = AutomationDetailViewModel("j1", r, scopeOverride = this, launchScope = this, runs = runs)
+        first.refresh(); advanceUntilIdle()
+        first.runNow(); advanceUntilIdle()
+        val reopened = AutomationDetailViewModel("j1", r, scopeOverride = this, launchScope = this, runs = runs)
+        reopened.refresh(); advanceUntilIdle()
+        assertTrue(reopened.state.value.running)
+        reopened.runNow(); advanceUntilIdle()
+        assertEquals(1, triggers)
+        gate.complete(Unit); advanceUntilIdle()
+        assertFalse(reopened.state.value.running)
+        assertEquals("done", reopened.state.value.lastTrigger!!.output)
     }
 }

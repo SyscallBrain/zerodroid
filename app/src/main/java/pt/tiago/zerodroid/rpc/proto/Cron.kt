@@ -22,6 +22,8 @@ data class CronDelivery(
     val channel: String? = null,
     val to: String? = null,
     @kotlinx.serialization.EncodeDefault @SerialName("best_effort") val bestEffort: Boolean = true,
+    /** Thread or topic inside [channel]; set by agents, kept across edits. */
+    @SerialName("thread_id") val threadId: String? = null,
 )
 
 // Source: CronJob — crates/zeroclaw-runtime/src/cron/types.rs (lenient)

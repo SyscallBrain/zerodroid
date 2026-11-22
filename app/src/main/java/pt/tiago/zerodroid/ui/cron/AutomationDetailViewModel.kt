@@ -43,6 +43,7 @@ class AutomationDetailViewModel(
     private val repo: CronRepository = ZeroDroidConnection.crons,
     private val scopeOverride: CoroutineScope? = null,
     private val launchScope: CoroutineScope = automationRunScope,
+    private val runs: CronRunRegistry = CronRunRegistry.shared,
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
     private val _state = MutableStateFlow(AutomationDetailState())
@@ -58,6 +59,7 @@ class AutomationDetailViewModel(
                 is CronResult.Error -> _state.update { it.copy(error = r.message) }
             }
             loadRuns()
+            runs.latest(id)?.let { follow(it, fresh = it.isActive) }
         }
     }
 
@@ -74,14 +76,26 @@ class AutomationDetailViewModel(
 
     fun runNow() {
         if (_state.value.running) return
-        _state.update { it.copy(running = true, error = null) }
-        launchScope.launch {
-            when (val r = repo.trigger(id)) {
-                is CronResult.Ok -> _state.update { it.copy(running = false, lastTrigger = r.value) }
-                CronResult.Forbidden -> forbidden()
-                is CronResult.Lost -> _state.update { it.copy(running = false, error = r.message) }
-                is CronResult.Error -> _state.update { it.copy(running = false, error = r.message) }
-            }
+        _state.update { it.copy(error = null) }
+        val run = runs.start(id, launchScope) { repo.trigger(id) }
+        scope.launch { follow(run, fresh = true) }
+    }
+
+    /**
+     * Shows [run] as running until it ends, then its result. [fresh]: the run is (or was, when this
+     * screen started it) in flight now, so its end refreshes the history and its errors are news.
+     */
+    private suspend fun follow(run: kotlinx.coroutines.Deferred<CronResult<CronTriggerResult>>, fresh: Boolean) {
+        if (fresh) _state.update { it.copy(running = true) }
+        val finished = !fresh
+        when (val r = run.await()) {
+            is CronResult.Ok -> _state.update { it.copy(running = false, lastTrigger = r.value) }
+            CronResult.Forbidden -> forbidden()
+            // An earlier session's failure isn't news; only report one this screen saw happen.
+            is CronResult.Lost -> _state.update { it.copy(running = false, error = if (finished) it.error else r.message) }
+            is CronResult.Error -> _state.update { it.copy(running = false, error = if (finished) it.error else r.message) }
+        }
+        if (!finished) {
             loadRuns()
             (repo.get(id) as? CronResult.Ok)?.let { setJob(it.value) }
         }

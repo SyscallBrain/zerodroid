@@ -126,4 +126,22 @@ class CronDraftTest {
         assertFalse(orig.dirty(orig))
         assertTrue(orig.copy(name = "x").dirty(orig))
     }
+
+    @Test
+    fun atJobSavesWithoutSchedule() {
+        val at = CronJob(id = "o1", expression = "", schedule = CronSchedule("at", at = "2026-11-23T09:00:00Z"), command = "echo", jobType = "shell", agentAlias = "a")
+        val d = CronDraft.from(at)
+        val edited = d.copy(name = "x")
+        assertEquals(emptyList<String>(), edited.problems())
+        assertEquals(setOf("id", "agent", "name"), keys(edited.toPatch("o1", d)!!))
+    }
+
+    @Test
+    fun deliveryEditKeepsThreadId() {
+        val job = agentJob.copy(delivery = CronDelivery("announce", "telegram.main", "42", false, threadId = "t9"))
+        val d = CronDraft.from(job)
+        val p = d.copy(to = "43").toPatch("j1", d)!!
+        assertEquals("t9", p.delivery!!.threadId)
+        assertEquals("t9", d.copy(agent = "a").toAdd().delivery!!.threadId)
+    }
 }

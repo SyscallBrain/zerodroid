@@ -69,7 +69,7 @@ fun AutomationEditorScreen(vm: AutomationEditorViewModel, onBack: () -> Unit, on
     val back = { if (s.dirty) discardAsk = true else onBack() }
     BackHandler(onBack = back)
     val d = s.draft
-    val isNew = s.job == null
+    val isNew = s.isNew
     val set = vm::update
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).windowInsetsPadding(WindowInsets.ime)) {
         ZcTopBar(
@@ -78,7 +78,7 @@ fun AutomationEditorScreen(vm: AutomationEditorViewModel, onBack: () -> Unit, on
             actions = {
                 ZcPrimaryButton(
                     if (s.saving) "Saving…" else "Save", compact = true,
-                    enabled = !s.saving && !s.loading && conn is ConnState.Ready && (isNew || s.dirty),
+                    enabled = s.canSave && conn is ConnState.Ready,
                     onClick = vm::save,
                 )
             },
@@ -89,6 +89,8 @@ fun AutomationEditorScreen(vm: AutomationEditorViewModel, onBack: () -> Unit, on
             SkeletonLines(5, Modifier.padding(ZcTokens.gutter))
             return@Column
         }
+        // The job didn't load: the banner above says why; there is nothing to edit.
+        if (!isNew && s.job == null) return@Column
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = ZcTokens.gutter).padding(bottom = 48.dp)) {
             SectionHeader("Basics")
             FieldLabel("Name")
