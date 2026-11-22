@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -85,21 +86,86 @@ fun ZdApp(
         Box(Modifier.fillMaxSize().background(ZcTokens.background)) {
             when (val p = phase) {
                 AppPhase.Loading -> Unit
-                is AppPhase.Unpaired -> OnboardingScreen(
-                    state = onb,
-                    notice = p.notice,
-                    onLink = onboarding::onLink,
-                    onConfirm = onboarding::onConfirm,
-                    onCancel = onboarding::onCancel,
-                    onScanQr = onScanQr,
-                )
+                is AppPhase.Unpaired -> {
+                    var oidc by rememberSaveable { mutableStateOf(false) }
+                    if (oidc) {
+                        val context = LocalContext.current
+                        val oidcVm: pt.tiago.zerodroid.ui.onboarding.OidcSignInViewModel = viewModel(key = "oidc-onboard") {
+                            pt.tiago.zerodroid.ui.onboarding.oidcSignInViewModel(context, pt.tiago.zerodroid.ui.onboarding.OidcMode.Onboard)
+                        }
+                        androidx.activity.compose.BackHandler { oidcVm.cancel(); oidc = false }
+                        pt.tiago.zerodroid.ui.onboarding.OidcSignInScreen(oidcVm, renew = false, onBack = { oidc = false })
+                    } else {
+                        OnboardingScreen(
+                            state = onb,
+                            notice = p.notice,
+                            onLink = onboarding::onLink,
+                            onConfirm = onboarding::onConfirm,
+                            onCancel = onboarding::onCancel,
+                            onScanQr = onScanQr,
+                            onOidc = { oidc = true },
+                        )
+                    }
+                }
                 is AppPhase.Paired -> {
                     LaunchedEffect(onb) { if (onb is OnbState.Done) onboarding.onCancel() }
-                    MainShell(debug, externalOpen, onExternalOpenConsumed)
+                    PairedShell(p.profile, debug, externalOpen, onExternalOpenConsumed)
                 }
             }
         }
     }
+}
+
+/** The main shell plus, for OIDC daemons, the sign-in banner on top and the renew sheet over everything. */
+@Composable
+private fun PairedShell(profile: pt.tiago.zerodroid.data.DaemonProfile, debug: Boolean, externalOpen: OpenChat?, onExternalOpenConsumed: () -> Unit) {
+    val signIn by ZeroDroidConnection.signIn.collectAsStateWithLifecycle()
+    val renewOpen by ZeroDroidConnection.renewRequested.collectAsStateWithLifecycle()
+    val bannerShown = signIn is pt.tiago.zerodroid.data.SignInStatus.Expiring || signIn == pt.tiago.zerodroid.data.SignInStatus.Expired
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            if (bannerShown) {
+                SignInBanner(signIn, Modifier.windowInsetsPadding(WindowInsets.statusBars), onRenew = ZeroDroidConnection::requestRenew)
+            }
+            Box(
+                Modifier.weight(1f).then(
+                    if (bannerShown) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier,
+                ),
+            ) { MainShell(debug, externalOpen, onExternalOpenConsumed) }
+        }
+        if (renewOpen && profile.isOidc) {
+            val context = LocalContext.current
+            // A fresh view model per opening: a previous grant's state never leaks into the next one.
+            var generation by rememberSaveable { mutableIntStateOf(0) }
+            val vm: pt.tiago.zerodroid.ui.onboarding.OidcSignInViewModel = viewModel(key = "oidc-renew-$generation") {
+                pt.tiago.zerodroid.ui.onboarding.oidcSignInViewModel(context, pt.tiago.zerodroid.ui.onboarding.OidcMode.Renew(profile))
+            }
+            val close = { vm.cancel(); generation++; ZeroDroidConnection.renewHandled() }
+            LaunchedEffect(vm) { vm.renew() }
+            androidx.activity.compose.BackHandler(onBack = close)
+            Box(Modifier.fillMaxSize().background(ZcTokens.background).pointerInput(Unit) { detectTapGestures { } }) {
+                pt.tiago.zerodroid.ui.onboarding.OidcSignInScreen(vm, renew = true, onBack = close, onDone = close)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SignInBanner(status: pt.tiago.zerodroid.data.SignInStatus, modifier: Modifier = Modifier, onRenew: () -> Unit) {
+    val now by androidx.compose.runtime.produceState(System.currentTimeMillis() / 1000) {
+        while (true) {
+            kotlinx.coroutines.delay(15_000)
+            value = System.currentTimeMillis() / 1000
+        }
+    }
+    val (text, action, tone) = when (status) {
+        is pt.tiago.zerodroid.data.SignInStatus.Expiring -> {
+            val min = ((status.expiresAt - now + 59) / 60).coerceAtLeast(1)
+            Triple("Sign-in expires in $min min", "Renew", pt.tiago.zerodroid.ui.kit.Tone.Attention)
+        }
+        else -> Triple("Your sign-in expired", "Sign in again", pt.tiago.zerodroid.ui.kit.Tone.Danger)
+    }
+    pt.tiago.zerodroid.ui.kit.ConnectionBanner(true, text, tone, modifier, action = action, onAction = onRenew)
 }
 
 private const val PREFS = "zerodroid-ui"

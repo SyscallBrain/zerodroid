@@ -78,7 +78,38 @@ fun OnboardingScreen(
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
     onScanQr: () -> Unit,
+    onOidc: () -> Unit = {},
 ) {
+    OnboardingFrame {
+        if (notice != null && state is OnbState.Welcome) {
+            Spacer(Modifier.height(20.dp))
+            ConnectionBanner(true, notice, Tone.Attention, Modifier.padding(horizontal = 0.dp))
+        }
+        Spacer(Modifier.height(32.dp))
+        AnimatedContent(
+            targetState = state,
+            contentKey = { it::class },
+            transitionSpec = {
+                (fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 12 }) togetherWith fadeOut(tween(150))
+            },
+            label = "onb",
+        ) { s ->
+            when (s) {
+                OnbState.Welcome, is OnbState.Input -> PairOptions(onLink, onScanQr, onOidc)
+                OnbState.Verifying -> Working("Checking the daemon", "Fetching its certificate and matching the fingerprint from the link.")
+                is OnbState.Confirm -> Confirm(s, onConfirm, onCancel)
+                OnbState.Enrolling -> Working("Issuing this phone's certificate", "The private key is created in Android Keystore and never leaves the phone.")
+                OnbState.Done -> Working("Connecting", "Pairing saved. Opening your dashboard.")
+                is OnbState.Failed -> Failed(s.message, onCancel)
+            }
+        }
+        Spacer(Modifier.height(40.dp))
+    }
+}
+
+/** The brand header and background shared by link pairing and OIDC sign-in. */
+@Composable
+internal fun OnboardingFrame(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
@@ -111,29 +142,7 @@ fun OnboardingScreen(
                 },
                 style = ZcType.title.copy(color = ZcTokens.muted, fontWeight = FontWeight(500)),
             )
-            if (notice != null && state is OnbState.Welcome) {
-                Spacer(Modifier.height(20.dp))
-                ConnectionBanner(true, notice, Tone.Attention, Modifier.padding(horizontal = 0.dp))
-            }
-            Spacer(Modifier.height(32.dp))
-            AnimatedContent(
-                targetState = state,
-                contentKey = { it::class },
-                transitionSpec = {
-                    (fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 12 }) togetherWith fadeOut(tween(150))
-                },
-                label = "onb",
-            ) { s ->
-                when (s) {
-                    OnbState.Welcome, is OnbState.Input -> PairOptions(onLink, onScanQr)
-                    OnbState.Verifying -> Working("Checking the daemon", "Fetching its certificate and matching the fingerprint from the link.")
-                    is OnbState.Confirm -> Confirm(s, onConfirm, onCancel)
-                    OnbState.Enrolling -> Working("Issuing this phone's certificate", "The private key is created in Android Keystore and never leaves the phone.")
-                    OnbState.Done -> Working("Connecting", "Pairing saved. Opening your dashboard.")
-                    is OnbState.Failed -> Failed(s.message, onCancel)
-                }
-            }
-            Spacer(Modifier.height(40.dp))
+            content()
         }
     }
 }
@@ -151,7 +160,7 @@ private fun BrandMark() {
 }
 
 @Composable
-private fun PairOptions(onLink: (String) -> Unit, onScanQr: () -> Unit) {
+private fun PairOptions(onLink: (String) -> Unit, onScanQr: () -> Unit, onOidc: () -> Unit) {
     val context = LocalContext.current
     var manual by rememberSaveable { mutableStateOf(false) }
     var text by rememberSaveable { mutableStateOf("") }
@@ -209,6 +218,7 @@ private fun PairOptions(onLink: (String) -> Unit, onScanQr: () -> Unit) {
                 }
             }
         }
+        ZcGhostButton("Sign in with OIDC", icon = ZcIcons.Shield, modifier = Modifier.fillMaxWidth(), onClick = onOidc)
         Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.Top) {
             Icon(ZcIcons.Shield, null, tint = ZcTokens.faint, modifier = Modifier.size(16.dp).padding(top = 1.dp))
             Spacer(Modifier.width(8.dp))
@@ -273,7 +283,7 @@ private fun Confirm(s: OnbState.Confirm, onConfirm: () -> Unit, onCancel: () -> 
 }
 
 @Composable
-private fun Working(title: String, hint: String) {
+internal fun Working(title: String, hint: String) {
     ZcCard(Modifier.fillMaxWidth(), padding = androidx.compose.foundation.layout.PaddingValues(20.dp)) {
         Text(title, style = ZcType.heading)
         Spacer(Modifier.height(4.dp))
@@ -284,7 +294,7 @@ private fun Working(title: String, hint: String) {
 }
 
 @Composable
-private fun Failed(message: String, onRetry: () -> Unit) {
+internal fun Failed(message: String, onRetry: () -> Unit, title: String = "Pairing didn't go through") {
     ZcCard(
         Modifier.fillMaxWidth(),
         border = ZcTokens.danger.copy(alpha = 0.3f),
@@ -296,7 +306,7 @@ private fun Failed(message: String, onRetry: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) { Icon(ZcIcons.Alert, null, tint = ZcTokens.danger, modifier = Modifier.size(18.dp)) }
             Spacer(Modifier.width(12.dp))
-            Text("Pairing didn't go through", style = ZcType.heading)
+            Text(title, style = ZcType.heading)
         }
         Spacer(Modifier.height(12.dp))
         Text(message, style = ZcType.body.copy(color = ZcTokens.muted))

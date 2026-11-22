@@ -99,7 +99,14 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
                     )
                     Divider()
                     InfoRow(ZcIcons.Qr, "Device", profile.deviceId.take(18), mono = true)
+                    if (profile.isOidc) {
+                        Divider()
+                        InfoRow(ZcIcons.Clock, "Sign-in", oidcSignInText(profile, System.currentTimeMillis() / 1000))
+                    }
                 }
+            }
+            if (profile?.isOidc == true) {
+                ZcGhostButton("Sign in again", icon = ZcIcons.Refresh, modifier = Modifier.fillMaxWidth(), onClick = ZeroDroidConnection::requestRenew)
             }
 
             SectionHeader("Background")
@@ -140,7 +147,11 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
 
             SectionHeader("This phone")
             ZcCard(Modifier.fillMaxWidth()) {
-                Text("Unpairing deletes this phone's certificate, key and token. To connect again, run the pairing helper.", style = ZcType.small)
+                Text(
+                    if (profile?.isOidc == true) "Unpairing deletes this phone's certificate, key and token. To connect again, sign in with OIDC."
+                    else "Unpairing deletes this phone's certificate, key and token. To connect again, run the pairing helper.",
+                    style = ZcType.small,
+                )
                 Spacer(Modifier.height(12.dp))
                 ZcDangerButton("Unpair this phone", icon = ZcIcons.Unlink, modifier = Modifier.fillMaxWidth()) { confirmUnpair = true }
             }
@@ -183,4 +194,10 @@ private fun InfoRow(icon: ImageVector, label: String, value: String, mono: Boole
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+internal fun oidcSignInText(profile: pt.tiago.zerodroid.data.DaemonProfile, now: Long): String {
+    val expires = profile.tokenExpiresAt ?: return "${profile.authProvider} · expiry unknown"
+    val left = expires - now
+    return if (left <= 30) "${profile.authProvider} · expired" else "${profile.authProvider} · expires in ${(left + 59) / 60} min"
 }

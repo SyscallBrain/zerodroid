@@ -96,6 +96,12 @@ object ZeroDroidConnection {
     val signIn: StateFlow<SignInStatus> = _signIn.asStateFlow()
     private var expiryJob: Job? = null
 
+    private val _renewRequested = MutableStateFlow(false)
+    /** The UI should open the OIDC renew sheet (banner, Config → Phone or a notification asked). */
+    val renewRequested: StateFlow<Boolean> = _renewRequested.asStateFlow()
+    fun requestRenew() { if ((_phase.value as? AppPhase.Paired)?.profile?.isOidc == true) _renewRequested.value = true }
+    fun renewHandled() { _renewRequested.value = false }
+
     private val _simulateUnreachable = MutableStateFlow(false)
     val simulateUnreachable: StateFlow<Boolean> = _simulateUnreachable.asStateFlow()
 
