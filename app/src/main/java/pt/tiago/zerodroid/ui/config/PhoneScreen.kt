@@ -69,6 +69,7 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
     val showWorkflows by ZeroDroidConnection.screen.showWorkflowsTile.collectAsStateWithLifecycle()
     val showCanvas by ZeroDroidConnection.screen.showCanvasTile.collectAsStateWithLifecycle()
     val showAutomation by ZeroDroidConnection.screen.showAutomationTile.collectAsStateWithLifecycle()
+    val showDoctor by ZeroDroidConnection.screen.showDoctorTile.collectAsStateWithLifecycle()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val profile = (phase as? AppPhase.Paired)?.profile
     var confirmUnpair by remember { mutableStateOf(false) }
@@ -160,6 +161,18 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
                         Text("Off hides it from Home. Jobs keep running.", style = ZcType.caption)
                     }
                     ZcSwitch(showAutomation, toggleAutomation)
+                }
+                Divider()
+                val toggleDoctor = { on: Boolean -> scope.launch { ZeroDroidConnection.screen.setShowDoctorTile(on) }; Unit }
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { toggleDoctor(!showDoctor) },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Show Doctor card", style = ZcType.body)
+                        Text("Off hides it from Home. Doctor stays in Config.", style = ZcType.caption)
+                    }
+                    ZcSwitch(showDoctor, toggleDoctor)
                 }
             }
 

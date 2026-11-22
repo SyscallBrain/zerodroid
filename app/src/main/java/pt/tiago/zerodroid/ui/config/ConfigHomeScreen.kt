@@ -83,13 +83,31 @@ private val stackSaver = Saver<List<ConfigRoute>, String>(
     restore = { runCatching { ZdJson.decodeFromString(ListSerializer(ConfigRoute.serializer()), it) }.getOrDefault(emptyList()) },
 )
 
+/**
+ * The back stack a jump from outside Config lands on: the section, then the family list for a typed
+ * entry (`channels.<type>.<alias>`, `providers.models.<type>.<alias>`), then [jump]. Back walks up it.
+ */
+internal fun jumpStack(jump: ConfigRoute): List<ConfigRoute> {
+    val (section, prefix) = when (jump) {
+        is ConfigRoute.Entry -> jump.sectionKey to jump.prefix
+        is ConfigRoute.Field -> jump.sectionKey to jump.prefix
+        is ConfigRoute.Family -> jump.sectionKey to ""
+        is ConfigRoute.Section -> return listOf(jump)
+        ConfigRoute.Phone -> return listOf(jump)
+    }
+    // Two segments past the section (`<type>.<alias>`) means a typed family sits in between.
+    val extra = if (prefix.startsWith("$section.")) prefix.removePrefix("$section.").count { it == '.' } + 1 else 0
+    val family = prefix.takeIf { extra >= 2 }?.substringBeforeLast('.')
+    return listOfNotNull(ConfigRoute.Section(section), family?.let { ConfigRoute.Family(section, it) }, jump)
+}
+
 /** The Config tab: home plus a back stack of config screens, the review sheet and structural dialogs. */
 @Composable
-fun ConfigTab(debug: Boolean, active: Boolean = true, jump: ConfigRoute? = null, onJumpConsumed: () -> Unit = {}) {
+fun ConfigTab(debug: Boolean, active: Boolean = true, jump: ConfigRoute? = null, onJumpConsumed: () -> Unit = {}, onOpenDoctor: () -> Unit = {}) {
     var stack by rememberSaveable(stateSaver = stackSaver) { mutableStateOf(emptyList<ConfigRoute>()) }
     LaunchedEffect(jump) {
         if (jump != null) {
-            stack = listOf(ConfigRoute.Section(jump.let { (it as? ConfigRoute.Entry)?.sectionKey ?: "agents" }), jump)
+            stack = jumpStack(jump)
             onJumpConsumed()
         }
     }
@@ -106,7 +124,7 @@ fun ConfigTab(debug: Boolean, active: Boolean = true, jump: ConfigRoute? = null,
         label = "config-nav",
     ) { top ->
         when (top) {
-            null -> ConfigHomeScreen(active = active, onNavigate = push, onReview = { review = true })
+            null -> ConfigHomeScreen(active = active, onNavigate = push, onReview = { review = true }, onOpenDoctor = onOpenDoctor)
             ConfigRoute.Phone -> PhoneScreen(debug, onBack = pop)
             else -> ConfigRouteScreen(
                 route = top,
@@ -139,7 +157,7 @@ private fun groupIcon(groupKey: String?): ImageVector = when (groupKey) {
 }
 
 @Composable
-fun ConfigHomeScreen(active: Boolean = true, onNavigate: (ConfigRoute) -> Unit, onReview: () -> Unit) {
+fun ConfigHomeScreen(active: Boolean = true, onNavigate: (ConfigRoute) -> Unit, onReview: () -> Unit, onOpenDoctor: () -> Unit = {}) {
     val editor = ZeroDroidConnection.config
     val sections by editor.sections.collectAsStateWithLifecycle()
     val staged by editor.draft.entries.collectAsStateWithLifecycle()
@@ -208,6 +226,9 @@ fun ConfigHomeScreen(active: Boolean = true, onNavigate: (ConfigRoute) -> Unit, 
                 if (hits.isEmpty()) item("none") { EmptyState(ZcIcons.Search, "No setting matches", "Try a key name like model, port or token.") }
                 items(hits, key = { "h-" + it.field.path }) { hit -> SearchRow(hit, staged.any { it.path == hit.field.path }) { openHit(hit, onNavigate) } }
                 return@LazyColumn
+            }
+            item("doctor") {
+                SectionRow(ZcIcons.Shield, "Doctor", "Run ZeroClaw's checks and fix what they find", false, onOpenDoctor)
             }
             if (sections.isEmpty()) {
                 items(6, key = { "sk$it" }) { Skeleton(Modifier.fillMaxWidth().height(52.dp).padding(vertical = 4.dp)) }

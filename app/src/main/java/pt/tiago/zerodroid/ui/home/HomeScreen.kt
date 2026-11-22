@@ -77,12 +77,14 @@ fun HomeScreen(
     workflowsWaiting: Int = 0,
     onOpenCanvas: () -> Unit = {},
     onOpenAutomation: () -> Unit = {},
+    onOpenDoctor: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val workflows by viewModel.workflows.collectAsStateWithLifecycle()
     val showWorkflows by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showWorkflowsTile.collectAsStateWithLifecycle()
     val showCanvas by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showCanvasTile.collectAsStateWithLifecycle()
     val showAutomation by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showAutomationTile.collectAsStateWithLifecycle()
+    val showDoctor by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showDoctorTile.collectAsStateWithLifecycle()
     val m by viewModel.model.collectAsStateWithLifecycle()
     pt.tiago.zerodroid.RecomposeProbe("HomeScreen")
     pt.tiago.zerodroid.Perf.mark("home.firstComposition")
@@ -215,6 +217,27 @@ fun HomeScreen(
                     onClick = onOpenAutomation,
                     modifier = Modifier.fillMaxWidth(),
                     footer = pill?.let { (label, tone) -> { pt.tiago.zerodroid.ui.kit.StatusPill(label, tone) } },
+                )
+            }
+            if (showDoctor) item("doctor") {
+                // Read here, not at the top: a finished run recomposes only this tile.
+                val ds by pt.tiago.zerodroid.data.ZeroDroidConnection.doctor.state.collectAsStateWithLifecycle()
+                val t = pt.tiago.zerodroid.ui.doctor.doctorTile(ds, pt.tiago.zerodroid.ui.doctor.currentDaemonKey()) {
+                    java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(it))
+                }
+                ZcTile(
+                    "Doctor",
+                    t.value,
+                    suffix = t.suffix,
+                    caption = t.caption,
+                    loading = t.loading,
+                    onClick = onOpenDoctor,
+                    modifier = Modifier.fillMaxWidth(),
+                    footer = if (t.running) {
+                        { pt.tiago.zerodroid.ui.kit.StatusPill("Running checks", Tone.Live, pulse = true) }
+                    } else {
+                        t.pill?.let { (label, tone) -> { pt.tiago.zerodroid.ui.kit.StatusPill(label, tone) } }
+                    },
                 )
             }
             if (m.core.isNotEmpty() || m.channels.isNotEmpty()) {
