@@ -61,7 +61,7 @@ private fun Spinner(modifier: Modifier = Modifier) {
 
 /** Compact tool call: status, mono name, first argument, duration. Tap to expand args and output. */
 @Composable
-fun ToolChip(item: ChatItem.Tool, modifier: Modifier = Modifier) {
+fun ToolChip(item: ChatItem.Tool, modifier: Modifier = Modifier, onOpenCanvas: (() -> Unit)? = null) {
     var open by rememberSaveable(item.key) { mutableStateOf(false) }
     val shape = RoundedCornerShape(ZcTokens.chipRadius)
     Column(
@@ -90,6 +90,10 @@ fun ToolChip(item: ChatItem.Tool, modifier: Modifier = Modifier) {
             item.durationMs?.let {
                 Spacer(Modifier.width(8.dp))
                 Text(formatDuration(it), style = ZcType.monoSmall.copy(color = ZcTokens.faint))
+            }
+            onOpenCanvas?.let {
+                Spacer(Modifier.width(8.dp))
+                pt.tiago.zerodroid.ui.kit.ZcGhostButton("Open", compact = true, onClick = it)
             }
         }
         AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {

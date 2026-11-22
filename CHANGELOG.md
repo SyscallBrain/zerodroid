@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Canvas: what agents draw with the `canvas` tool in the phone's chats is
+  saved on the phone, per daemon, with up to 50 frames per canvas. A Home
+  card (which can be hidden) opens the list; HTML and SVG frames show in a
+  sandboxed web view, Markdown and text natively, and a canvas tool call in
+  the chat opens the frame it drew.
+
 ## [0.7.0] - 2026-11-22
 
 ### Added

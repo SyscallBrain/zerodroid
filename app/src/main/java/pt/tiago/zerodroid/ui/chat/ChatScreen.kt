@@ -83,8 +83,13 @@ fun ChatScreen(
     onFirstSend: () -> Unit = {},
     onOpenChat: (String, String) -> Unit = { _, _ -> },
     onOpenAgent: (String) -> Unit = {},
+    onOpenCanvas: (canvasId: String, frameId: String) -> Unit = { _, _ -> },
+    /** The canvases drawn in this chat (ids, newest first): the top bar's shortcut to them. */
+    onOpenChatCanvases: (sessionId: String, canvasIds: List<String>) -> Unit = { _, _ -> },
 ) {
     val s by viewModel.state.collectAsStateWithLifecycle()
+    // Read so canvas chips get their Open button once the archive has written the frame.
+    val canvases by pt.tiago.zerodroid.data.ZeroDroidConnection.canvas.canvases.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val conn by viewModel.connection.collectAsStateWithLifecycle()
     val title by viewModel.title.collectAsStateWithLifecycle()
@@ -126,7 +131,15 @@ fun ChatScreen(
             navigation = { ZcIconButton(ZcIcons.Back, "Back", onClick = onBack) },
             leading = { Avatar(viewModel.agentAlias, size = 34.dp) },
             subtitle = { LiveLine(s.turnRunning, s.items.lastOrNull(), conn) },
-            actions = { ZcIconButton(ZcIcons.More, "Session") { sheet = true } },
+            actions = {
+                // Chat history comes back from the daemon as text only, so after a reload the canvas
+                // tool chips are gone; this shortcut works from the archive instead.
+                val chatCanvases = remember(canvases) { pt.tiago.zerodroid.data.ZeroDroidConnection.canvas.canvasesFor(viewModel.sessionId) }
+                if (chatCanvases.isNotEmpty()) {
+                    ZcIconButton(ZcIcons.Image, "Canvas from this chat") { onOpenChatCanvases(viewModel.sessionId, chatCanvases) }
+                }
+                ZcIconButton(ZcIcons.More, "Session") { sheet = true }
+            },
         )
         HorizontalDivider(color = ZcTokens.hairline)
         ConnectionBanner(
@@ -162,7 +175,14 @@ fun ChatScreen(
                         item("typing") { TypingDots() }
                     }
                     items(reversed, key = { it.key }, contentType = { it::class }) { item ->
-                        ChatRow(item, viewModel, Modifier.animateItem(fadeInSpec = tween(180), placementSpec = null, fadeOutSpec = null))
+                        val canvasTarget = if (item is ChatItem.Tool && item.name == "canvas") {
+                            canvases.size
+                            pt.tiago.zerodroid.data.ZeroDroidConnection.canvas.locate(viewModel.sessionId, item.callId)
+                        } else null
+                        ChatRow(
+                            item, viewModel, Modifier.animateItem(fadeInSpec = tween(180), placementSpec = null, fadeOutSpec = null),
+                            onOpenCanvas = canvasTarget?.let { (c, f) -> { onOpenCanvas(c, f) } },
+                        )
                     }
                     if (s.hasOlder) item("older") {
                         Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
@@ -274,7 +294,7 @@ private fun LiveLine(running: Boolean, last: ChatItem?, conn: ConnState) {
 }
 
 @Composable
-private fun ChatRow(item: ChatItem, vm: ChatViewModel, modifier: Modifier) {
+private fun ChatRow(item: ChatItem, vm: ChatViewModel, modifier: Modifier, onOpenCanvas: (() -> Unit)? = null) {
     pt.tiago.zerodroid.RecomposeProbe("ChatRow")
     when (item) {
         is ChatItem.User -> UserBubble(item, modifier)
@@ -282,7 +302,7 @@ private fun ChatRow(item: ChatItem, vm: ChatViewModel, modifier: Modifier) {
             MarkdownText(item.text)
         }
         is ChatItem.Thought -> ThoughtRow(item, modifier)
-        is ChatItem.Tool -> ToolChip(item, modifier)
+        is ChatItem.Tool -> ToolChip(item, modifier, onOpenCanvas)
         is ChatItem.Approval -> ApprovalCard(
             toolName = item.toolName,
             summary = item.summary,

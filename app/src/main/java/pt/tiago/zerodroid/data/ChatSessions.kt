@@ -46,6 +46,8 @@ class ChatSession(
     private val keepImage: (OutgoingImage) -> Unit = {},
     /** A Code session (`chat_mode: acp`): re-attaching must keep that mode. */
     code: Boolean = false,
+    /** Where `canvas` render calls seen in this chat are saved; read on each call so it can be set late. */
+    private val canvasSink: () -> pt.tiago.zerodroid.data.canvas.CanvasSink? = { null },
 ) {
     var agentAlias: String = agentAlias
         private set
@@ -71,6 +73,25 @@ class ChatSession(
     fun onUpdate(e: SessionUpdate) {
         _state.update { reduce(it, e, clock()) }
         if (e is SessionUpdate.ApprovalRequest) approvals.onEvent(sessionId, agentAlias, e)
+        captureCanvas(e)
+    }
+
+    private fun captureCanvas(e: SessionUpdate) {
+        val sink = canvasSink() ?: return
+        when (e) {
+            is SessionUpdate.ToolCall -> pt.tiago.zerodroid.data.canvas.parseCanvasRender(e.name, e.rawInput)?.let {
+                sink.onCapture(sessionId, agentAlias, pt.tiago.zerodroid.data.canvas.CanvasCapture.Render(e.toolCallId, it))
+            }
+            is SessionUpdate.ToolResult -> if (e.name == "canvas" && !pt.tiago.zerodroid.data.canvas.canvasRenderSucceeded(e.rawOutput)) {
+                sink.onCapture(sessionId, agentAlias, pt.tiago.zerodroid.data.canvas.CanvasCapture.Failed(e.toolCallId))
+            }
+            else -> Unit
+        }
+    }
+
+    private fun captureCanvas(messages: List<pt.tiago.zerodroid.rpc.proto.MessageEntry>) {
+        val sink = canvasSink() ?: return
+        sink.onCaptures(sessionId, agentAlias, pt.tiago.zerodroid.data.canvas.canvasCapturesFromHistory(messages))
     }
 
     fun onApprovalResolved(requestId: String, status: ApprovalStatus) {
@@ -103,6 +124,7 @@ class ChatSession(
                 rpc.request<SessionIdParams, SessionStateResult>("session/state", SessionIdParams(sessionId))
             }.getOrNull()
             val rebuilt = fromHistory(page.messages, page.start, page.hasOlder ?: (page.start > 0))
+            captureCanvas(page.messages)
             val keepNotices = _state.value.items.filterIsInstance<ChatItem.Notice>()
                 .filter { it.kind == NoticeKind.TurnCancelled || it.kind == NoticeKind.TurnFailed }
                 .takeLast(1)
@@ -131,6 +153,7 @@ class ChatSession(
                     SessionMessagesParams(sessionId, limit = HISTORY_PAGE, beforeIndex = s.historyStart),
                 )
             }.onSuccess { page ->
+                captureCanvas(page.messages)
                 val older = fromHistory(page.messages, page.start, page.hasOlder ?: (page.start > 0))
                 _state.update { prependHistory(it, older) }
             }
@@ -249,6 +272,8 @@ class ChatSessions(
     private val sessions = java.util.concurrent.ConcurrentHashMap<String, ChatSession>()
     /** Set once the app has a files dir; sessions created afterwards keep copies of sent images. */
     @Volatile var imageCache: ImageCache? = null
+    /** Set once the app has a files dir; every session saves its canvas frames there. */
+    @Volatile var canvasSink: pt.tiago.zerodroid.data.canvas.CanvasSink? = null
     private val _running = MutableStateFlow<Map<String, String>>(emptyMap())
     /** sessionId → agent alias for every turn running on this phone. */
     val running: StateFlow<Map<String, String>> = _running.asStateFlow()
@@ -266,7 +291,7 @@ class ChatSessions(
 
     /** [code] marks a Code session; a session already known keeps its mode unless [code] is true. */
     fun get(sessionId: String, agentAlias: String, code: Boolean = false): ChatSession = sessions.getOrPut(sessionId) {
-        ChatSession(sessionId, agentAlias, rpc, approvals, scope, clock, keepImage = { img -> imageCache?.put(img) }, code = code).also { s ->
+        ChatSession(sessionId, agentAlias, rpc, approvals, scope, clock, keepImage = { img -> imageCache?.put(img) }, code = code, canvasSink = { canvasSink }).also { s ->
             scope.launch {
                 s.state.collect { st ->
                     _running.update { m -> if (st.turnRunning) m + (sessionId to s.agentAlias) else m - sessionId }

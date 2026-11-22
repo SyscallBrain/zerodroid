@@ -253,4 +253,59 @@ class ChatSessionTest {
         s.send("faster", emptyList())
         assertEquals(listOf(img), s.draftImages.value)
     }
+
+    private class RecordingSink : pt.tiago.zerodroid.data.canvas.CanvasSink {
+        val got = mutableListOf<Pair<String, pt.tiago.zerodroid.data.canvas.CanvasCapture>>()
+        override fun onCapture(sessionId: String, agentAlias: String, capture: pt.tiago.zerodroid.data.canvas.CanvasCapture) {
+            got += sessionId to capture
+        }
+    }
+
+    private fun TestScope.canvasSession(rpc: FakeCaller, sink: RecordingSink) =
+        ChatSession("s", "main", rpc, ApprovalCenter(rpc), backgroundScope, canvasSink = { sink })
+
+    private val renderArgs = pt.tiago.zerodroid.rpc.ZdJson.parseToJsonElement("""{"action":"render","content":"x"}""")
+
+    @Test
+    fun liveCanvasRenderIsCaptured() = runTest(UnconfinedTestDispatcher()) {
+        val sink = RecordingSink()
+        canvasSession(FakeCaller(), sink).onUpdate(SessionUpdate.ToolCall("s", "t1", "canvas", renderArgs))
+        assertEquals(
+            listOf("s" to pt.tiago.zerodroid.data.canvas.CanvasCapture.Render("t1", pt.tiago.zerodroid.data.canvas.CanvasRender("default", "html", "x"))),
+            sink.got,
+        )
+    }
+
+    @Test
+    fun liveFailedRenderIsReported() = runTest(UnconfinedTestDispatcher()) {
+        val sink = RecordingSink()
+        val s = canvasSession(FakeCaller(), sink)
+        s.onUpdate(SessionUpdate.ToolCall("s", "t1", "canvas", renderArgs))
+        s.onUpdate(SessionUpdate.ToolResult("s", "t1", "canvas", "error"))
+        assertEquals(pt.tiago.zerodroid.data.canvas.CanvasCapture.Failed("t1"), sink.got.last().second)
+    }
+
+    @Test
+    fun otherToolsAreNotCaptured() = runTest(UnconfinedTestDispatcher()) {
+        val sink = RecordingSink()
+        canvasSession(FakeCaller(), sink).onUpdate(SessionUpdate.ToolCall("s", "t1", "shell", renderArgs))
+        assertTrue(sink.got.isEmpty())
+    }
+
+    @Test
+    fun historyRendersAreCaptured() = runTest(UnconfinedTestDispatcher()) {
+        val rpc = FakeCaller().apply {
+            on(
+                "session/messages",
+                """{"session_id":"s","messages":[{"role":"assistant","content":"","kind":"tool_call","tool_call_id":"t1","tool_name":"canvas","tool_input":{"action":"render","content":"x"}}],"start":0,"total":1}""",
+            )
+            on("session/state", """{"session_id":"s","state":"idle"}""")
+        }
+        val sink = RecordingSink()
+        val s = canvasSession(rpc, sink)
+        s.reload()
+        assertEquals(1, sink.got.size)
+        s.reload()
+        assertEquals(listOf("t1", "t1"), sink.got.map { it.second.toolCallId })
+    }
 }

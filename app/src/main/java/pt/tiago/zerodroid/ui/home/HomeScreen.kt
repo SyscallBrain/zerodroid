@@ -75,10 +75,12 @@ fun HomeScreen(
     onOpenWorkflows: () -> Unit = {},
     /** SOP runs waiting for a decision: tints the Workflows tile. */
     workflowsWaiting: Int = 0,
+    onOpenCanvas: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val workflows by viewModel.workflows.collectAsStateWithLifecycle()
     val showWorkflows by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showWorkflowsTile.collectAsStateWithLifecycle()
+    val showCanvas by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showCanvasTile.collectAsStateWithLifecycle()
     val m by viewModel.model.collectAsStateWithLifecycle()
     pt.tiago.zerodroid.RecomposeProbe("HomeScreen")
     pt.tiago.zerodroid.Perf.mark("home.firstComposition")
@@ -179,6 +181,18 @@ fun HomeScreen(
                     onClick = onOpenWorkflows,
                     modifier = Modifier.fillMaxWidth(),
                     footer = if (workflowsWaiting > 0) { { pt.tiago.zerodroid.ui.kit.StatusPill("Needs approval", Tone.Attention) } } else null,
+                )
+            }
+            if (showCanvas) item("canvas") {
+                // Read here, not at the top: a new frame recomposes only this tile.
+                val canvases by pt.tiago.zerodroid.data.ZeroDroidConnection.canvas.canvases.collectAsStateWithLifecycle()
+                ZcTile(
+                    "Canvas",
+                    canvases.size.toString(),
+                    suffix = "saved",
+                    caption = "Charts and pages agents drew",
+                    onClick = onOpenCanvas,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             if (m.core.isNotEmpty() || m.channels.isNotEmpty()) {
