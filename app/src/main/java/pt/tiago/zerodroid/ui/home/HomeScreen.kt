@@ -76,6 +76,7 @@ fun HomeScreen(
     /** SOP runs waiting for a decision: tints the Workflows tile. */
     workflowsWaiting: Int = 0,
     onOpenCanvas: () -> Unit = {},
+    onOpenAutomation: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val workflows by viewModel.workflows.collectAsStateWithLifecycle()

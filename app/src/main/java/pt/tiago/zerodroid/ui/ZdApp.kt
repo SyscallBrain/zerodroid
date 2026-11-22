@@ -192,6 +192,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
     var configJump by remember { mutableStateOf<pt.tiago.zerodroid.ui.config.ConfigRoute?>(null) }
     var sopStack by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.sop.SopStackSaver) { mutableStateOf(emptyList<pt.tiago.zerodroid.ui.sop.SopRoute>()) }
     var canvasRoute by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.canvas.CanvasRouteSaver) { mutableStateOf<pt.tiago.zerodroid.ui.canvas.CanvasRoute?>(null) }
+    var automationStack by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.cron.AutomationStackSaver) { mutableStateOf(emptyList<pt.tiago.zerodroid.ui.cron.AutomationRoute>()) }
     var notifRationale by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -229,6 +230,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
     val label = when {
         gallery -> "gallery"
         canvasRoute != null -> "canvas"
+        automationStack.isNotEmpty() -> "automation"
         sopStack.isNotEmpty() -> "workflows"
         agentAlias != null -> "agent"
         chatId != null -> "chat"
@@ -264,6 +266,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                         onOpenWorkflows = { pt.tiago.zerodroid.Perf.navigate("workflows"); sopStack = listOf(pt.tiago.zerodroid.ui.sop.SopRoute.List) },
                         workflowsWaiting = gateCount,
                         onOpenCanvas = { pt.tiago.zerodroid.Perf.navigate("canvas"); canvasRoute = pt.tiago.zerodroid.ui.canvas.CanvasRoute.List },
+                        onOpenAutomation = { pt.tiago.zerodroid.Perf.navigate("automation"); automationStack = listOf(pt.tiago.zerodroid.ui.cron.AutomationRoute.List) },
                     )
                     1 -> ChatsScreen(viewModel<ChatsViewModel>(), active = active, onOpen = openChat)
                     TAB_CODE -> CodeScreen(viewModel<CodeViewModel>(), active = active, onOpen = openChat)
@@ -348,6 +351,10 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                 configJump = pt.tiago.zerodroid.ui.config.ConfigRoute.Field("sop", "", "sop.sops_dir")
             },
         )
+    }
+
+    if (automationStack.isNotEmpty()) {
+        pt.tiago.zerodroid.ui.cron.AutomationHost(automationStack, onStack = { automationStack = it })
     }
 
     canvasRoute?.let { route ->
