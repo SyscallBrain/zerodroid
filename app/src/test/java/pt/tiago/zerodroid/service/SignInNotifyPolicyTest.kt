@@ -1,0 +1,22 @@
+package pt.tiago.zerodroid.service
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+import pt.tiago.zerodroid.data.SignInStatus
+
+class SignInNotifyPolicyTest {
+    private val statuses = listOf(SignInStatus.NotOidc, SignInStatus.Fresh, SignInStatus.Expiring(100), SignInStatus.Expired)
+
+    @Test
+    fun onlyPendingWorkInTheBackgroundNotifies() {
+        for (s in statuses) for (holding in listOf(true, false)) for (fg in listOf(true, false)) {
+            val expected = when {
+                !holding || fg -> null
+                s is SignInStatus.Expiring -> SignInNotice.Expiring
+                s == SignInStatus.Expired -> SignInNotice.Expired
+                else -> null
+            }
+            assertEquals("$s holding=$holding fg=$fg", expected, signInNotification(s, holding, fg))
+        }
+    }
+}

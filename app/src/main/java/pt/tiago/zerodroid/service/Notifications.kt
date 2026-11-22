@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
+import pt.tiago.zerodroid.data.SignInStatus
 import kotlinx.coroutines.launch
 import pt.tiago.zerodroid.MainActivity
 import pt.tiago.zerodroid.R
@@ -23,6 +24,9 @@ object Notifications {
     const val CHANNEL_TURNS = "turns"
     const val CHANNEL_APPROVALS = "approvals"
     const val CHANNEL_FINISHED = "finished"
+    const val CHANNEL_SIGNIN = "signin"
+    const val EXTRA_RENEW = "pt.tiago.zerodroid.RENEW"
+    private const val SIGNIN_ID = 2
     const val ONGOING_ID = 1
     const val EXTRA_SESSION = "pt.tiago.zerodroid.SESSION_ID"
     const val EXTRA_ALIAS = "pt.tiago.zerodroid.AGENT_ALIAS"
@@ -44,6 +48,11 @@ object Notifications {
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_FINISHED, "Finished turns", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "An agent finished something you started while the app was in the background"
+            },
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_SIGNIN, "Sign-in", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Your OIDC sign-in is about to expire while an agent is working"
             },
         )
     }
@@ -194,4 +203,57 @@ object Notifications {
             }
         }
     }
+
+    fun showSignIn(context: Context, notice: SignInNotice) {
+        if (!canPost(context)) return
+        val i = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(EXTRA_RENEW, true)
+        }
+        val pi = PendingIntent.getActivity(context, SIGNIN_ID, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val text = when (notice) {
+            SignInNotice.Expiring -> "Sign in again to keep your agent running"
+            SignInNotice.Expired -> "Your sign-in expired. Sign in to continue."
+        }
+        val n = NotificationCompat.Builder(context, CHANNEL_SIGNIN)
+            .setSmallIcon(R.drawable.ic_stat_zerodroid)
+            .setColor(ACCENT)
+            .setContentTitle("ZeroDroid")
+            .setContentText(text)
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(SIGNIN_ID, n) }
+    }
+
+    fun cancelSignIn(context: Context) = NotificationManagerCompat.from(context).cancel(SIGNIN_ID)
+
+    /** Spec §5.6: ask to renew only while a turn or approval is pending and the app is not on screen. */
+    fun watchSignIn(context: Context, scope: CoroutineScope) {
+        val app = context.applicationContext
+        scope.launch {
+            var shown: SignInNotice? = null
+            kotlinx.coroutines.flow.combine(
+                ZeroDroidConnection.signIn, ZeroDroidConnection.holdForeground, ZeroDroidConnection.foregroundState,
+            ) { status, holding, fg -> signInNotification(status, holding, fg) }
+                .collect { notice ->
+                    if (notice == null) {
+                        if (shown != null) cancelSignIn(app)
+                    } else if (notice != shown) {
+                        showSignIn(app, notice)
+                    }
+                    shown = notice
+                }
+        }
+    }
+}
+
+enum class SignInNotice { Expiring, Expired }
+
+internal fun signInNotification(status: SignInStatus, holding: Boolean, foreground: Boolean): SignInNotice? = when {
+    !holding || foreground -> null
+    status is SignInStatus.Expiring -> SignInNotice.Expiring
+    status == SignInStatus.Expired -> SignInNotice.Expired
+    else -> null
 }

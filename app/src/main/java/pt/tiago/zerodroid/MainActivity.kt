@@ -82,6 +82,10 @@ class MainActivity : ComponentActivity() {
             setIntent(Intent(intent).setData(null))
             return
         }
+        if (intent.getBooleanExtra(Notifications.EXTRA_RENEW, false)) {
+            ZeroDroidConnection.requestRenew()
+            intent.removeExtra(Notifications.EXTRA_RENEW)
+        }
         val session = intent.getStringExtra(Notifications.EXTRA_SESSION)
         if (session != null) {
             externalOpen = OpenChat(session, intent.getStringExtra(Notifications.EXTRA_ALIAS) ?: "agent")

@@ -99,7 +99,8 @@ object ZeroDroidConnection {
     private val _renewRequested = MutableStateFlow(false)
     /** The UI should open the OIDC renew sheet (banner, Config → Phone or a notification asked). */
     val renewRequested: StateFlow<Boolean> = _renewRequested.asStateFlow()
-    fun requestRenew() { if ((_phase.value as? AppPhase.Paired)?.profile?.isOidc == true) _renewRequested.value = true }
+    // Unconditional: a cold start from the notification asks before the profile has loaded; PairedShell checks isOidc.
+    fun requestRenew() { _renewRequested.value = true }
     fun renewHandled() { _renewRequested.value = false }
 
     private val _simulateUnreachable = MutableStateFlow(false)
@@ -113,6 +114,9 @@ object ZeroDroidConnection {
     private var notifyJob: Job? = null
     private var backgroundJob: Job? = null
     @Volatile private var foreground = false
+    private val _foregroundState = MutableStateFlow(false)
+    /** [isForeground] as a flow, for watchers that must react when the app leaves the screen. */
+    val foregroundState: StateFlow<Boolean> = _foregroundState.asStateFlow()
     /** True while an activity of the app is started (visible). */
     val isForeground: Boolean get() = foreground
     @Volatile private var identity: ClientIdentity? = null
@@ -253,12 +257,14 @@ object ZeroDroidConnection {
 
     fun onForeground() {
         foreground = true
+        _foregroundState.value = true
         backgroundJob?.cancel()
         ensureStarted()
     }
 
     fun onBackground() {
         foreground = false
+        _foregroundState.value = false
         backgroundJob?.cancel()
         backgroundJob = scope.launch {
             delay(BACKGROUND_GRACE_MS)
