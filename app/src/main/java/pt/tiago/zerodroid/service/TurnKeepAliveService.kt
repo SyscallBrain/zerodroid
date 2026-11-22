@@ -6,12 +6,14 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import pt.tiago.zerodroid.data.ZeroDroidConnection
 
@@ -39,10 +41,14 @@ class TurnKeepAliveService : Service() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0,
         )
         scope.launch {
-            ZeroDroidConnection.chats.running.collect { running ->
+            combine(ZeroDroidConnection.chats.running, ZeroDroidConnection.approvals.pendingCount) { running, pending ->
+                ongoingUpdate(running.values.toList(), pending)
+            }.collect { text ->
+                // Nothing in flight: the service is stopping, so leave the notification alone.
+                if (text == null) return@collect
                 // Updating our own foreground notification; without the permission it is simply not shown.
                 getSystemService(android.app.NotificationManager::class.java)
-                    ?.notify(Notifications.ONGOING_ID, Notifications.ongoing(this@TurnKeepAliveService, running.values.toList()))
+                    ?.notify(Notifications.ONGOING_ID, Notifications.ongoing(this@TurnKeepAliveService, text))
             }
         }
         scope.launch {
@@ -58,6 +64,10 @@ class TurnKeepAliveService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
+        // Remove the ongoing notification explicitly: an update posted just before the stop
+        // would otherwise outlive the service as a plain, undismissable notification.
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        NotificationManagerCompat.from(this).cancel(Notifications.ONGOING_ID)
         super.onDestroy()
     }
 

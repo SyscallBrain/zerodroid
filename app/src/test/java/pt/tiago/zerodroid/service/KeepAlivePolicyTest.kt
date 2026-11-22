@@ -2,6 +2,7 @@ package pt.tiago.zerodroid.service
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -16,4 +17,8 @@ class KeepAlivePolicyTest {
         assertEquals("researcher and coder are working…", ongoingText(listOf("researcher", "coder")))
         assertEquals("3 agents are working…", ongoingText(listOf("a", "b", "c")))
     }
+
+    @Test fun noUpdateWhenNothingInFlight() = assertNull(ongoingUpdate(emptyList(), 0))
+    @Test fun approvalOnlyUpdate() = assertEquals("Waiting for your approval…", ongoingUpdate(emptyList(), 1))
+    @Test fun runningUpdate() = assertEquals("coder is working…", ongoingUpdate(listOf("coder"), 0))
 }

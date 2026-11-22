@@ -21,6 +21,7 @@ class App : Application() {
         Perf.span("app.notifications") {
             Notifications.createChannels(this)
             Notifications.watchApprovals(this, scope)
+            Notifications.watchFinishedTurns(this, scope)
         }
         // Typefaces (Inter variable instances, JetBrains Mono) are otherwise created on the main thread
         // during the first frame; the resolver shares its cache with the one composition uses.

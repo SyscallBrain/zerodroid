@@ -22,6 +22,7 @@ import pt.tiago.zerodroid.rpc.proto.ApprovalDecision
 object Notifications {
     const val CHANNEL_TURNS = "turns"
     const val CHANNEL_APPROVALS = "approvals"
+    const val CHANNEL_FINISHED = "finished"
     const val ONGOING_ID = 1
     const val EXTRA_SESSION = "pt.tiago.zerodroid.SESSION_ID"
     const val EXTRA_ALIAS = "pt.tiago.zerodroid.AGENT_ALIAS"
@@ -40,6 +41,11 @@ object Notifications {
                 description = "An agent needs your permission to run a tool"
             },
         )
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_FINISHED, "Finished turns", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "An agent finished something you started while the app was in the background"
+            },
+        )
     }
 
     private fun canPost(context: Context) = Build.VERSION.SDK_INT < 33 ||
@@ -54,7 +60,9 @@ object Notifications {
         return PendingIntent.getActivity(context, requestCode, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
-    fun ongoing(context: Context, agents: List<String>): android.app.Notification {
+    fun ongoing(context: Context, agents: List<String>): android.app.Notification = ongoing(context, ongoingText(agents))
+
+    fun ongoing(context: Context, text: String): android.app.Notification {
         val stop = PendingIntent.getBroadcast(
             context, 1,
             Intent(context, ApprovalActionReceiver::class.java).setAction(ApprovalActionReceiver.ACTION_STOP_ALL),
@@ -64,7 +72,7 @@ object Notifications {
             .setSmallIcon(R.drawable.ic_stat_zerodroid)
             .setColor(ACCENT)
             .setContentTitle("ZeroDroid")
-            .setContentText(ongoingText(agents))
+            .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
@@ -137,6 +145,53 @@ object Notifications {
         }
         scope.launch {
             ZeroDroidConnection.approvals.resolutions.collect { r -> cancelApproval(app, r.requestId); shown -= r.requestId }
+        }
+    }
+
+    private fun finishedId(sessionId: String) = 500_000_000 + (sessionId.hashCode() and 0x0fffffff)
+
+    fun showFinished(context: Context, sessionId: String, alias: String, chatTitle: String?, f: FinishedTurn) {
+        if (!canPost(context)) return
+        val preview = plainPreview(f.text)
+        val n = NotificationCompat.Builder(context, CHANNEL_FINISHED)
+            .setSmallIcon(R.drawable.ic_stat_zerodroid)
+            .setColor(if (f.failed) 0xFFF87171.toInt() else ACCENT)
+            .setContentTitle(f.title)
+            .setContentText(preview.lineSequence().firstOrNull().orEmpty())
+            .setStyle(NotificationCompat.BigTextStyle().bigText(preview.take(600)))
+            .setSubText(chatTitle)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setAutoCancel(true)
+            .setContentIntent(openAppIntent(context, sessionId, alias, finishedId(sessionId)))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(finishedId(sessionId), n) }
+    }
+
+    fun cancelFinished(context: Context, sessionId: String) {
+        NotificationManagerCompat.from(context).cancel(finishedId(sessionId))
+    }
+
+    /**
+     * Raises a notification when a turn started on this phone ends while the app is not on
+     * screen. A new turn in the same chat replaces the previous one's notification.
+     */
+    fun watchFinishedTurns(context: Context, scope: CoroutineScope) {
+        val app = context.applicationContext
+        scope.launch {
+            var before = emptyMap<String, String>()
+            ZeroDroidConnection.chats.running.collect { now ->
+                (now.keys - before.keys).forEach { cancelFinished(app, it) }
+                if (!ZeroDroidConnection.isForeground) {
+                    (before.keys - now.keys).forEach { id ->
+                        val session = ZeroDroidConnection.chats.existing(id) ?: return@forEach
+                        val alias = before[id] ?: session.agentAlias
+                        val f = finishedTurn(alias, session.state.value) ?: return@forEach
+                        showFinished(app, id, alias, session.title.value, f)
+                    }
+                }
+                before = now
+            }
         }
     }
 }

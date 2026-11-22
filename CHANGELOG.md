@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A notification when an agent finishes a turn started on this phone while
+  the app is in the background: the start of its reply, or why it failed or
+  stopped. Tapping it opens the chat. Turns you stop yourself stay silent.
+  It has its own "Finished turns" channel.
+
+### Fixed
+
+- An undismissable "Waiting for your approval…" notification could stay
+  behind after a turn ended, with nothing to approve.
+
 ## [0.4.1] - 2026-11-21
 
 First public release.
