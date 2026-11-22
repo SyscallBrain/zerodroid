@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonElement
@@ -57,7 +58,9 @@ fun FieldLabel(text: String, modifier: Modifier = Modifier, trailing: (@Composab
 @Composable
 fun Picker(label: String, options: List<Pair<String, String>>, onPick: (String) -> Unit, modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
-    Box(modifier) {
+    var widthPx by remember { mutableStateOf(0) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    Box(modifier.onSizeChanged { widthPx = it.width }) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 46.dp).clip(RoundedCornerShape(ZcTokens.inputRadius))
                 .background(ZcTokens.raised).border(1.dp, ZcTokens.hairlineStrong, RoundedCornerShape(ZcTokens.inputRadius))
@@ -67,8 +70,12 @@ fun Picker(label: String, options: List<Pair<String, String>>, onPick: (String) 
             Text(label, style = ZcType.body, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Icon(ZcIcons.ChevronDown, null, tint = ZcTokens.muted, modifier = Modifier.size(18.dp))
         }
-        DropdownMenu(open, { open = false }, containerColor = ZcTokens.raised) {
-            options.forEach { (v, l) -> DropdownMenuItem({ Text(l, style = ZcType.body) }, onClick = { open = false; onPick(v) }) }
+        // As wide as the field, capped in height so long lists (agents) scroll inside the menu.
+        DropdownMenu(
+            open, { open = false }, containerColor = ZcTokens.raised,
+            modifier = Modifier.width(with(density) { widthPx.toDp() }.coerceAtLeast(160.dp)).heightIn(max = 380.dp),
+        ) {
+            options.forEach { (v, l) -> DropdownMenuItem({ Text(l, style = ZcType.body, maxLines = 1, overflow = TextOverflow.Ellipsis) }, onClick = { open = false; onPick(v) }) }
         }
     }
 }

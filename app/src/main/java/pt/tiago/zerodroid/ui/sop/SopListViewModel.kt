@@ -33,6 +33,9 @@ data class SopListState(
     val loading: Boolean = true,
     val cards: List<SopCardModel> = emptyList(),
     val engineOff: Boolean = false,
+    /** How to turn the engine on, known only while [engineOff]. */
+    val engineFix: pt.tiago.zerodroid.data.sop.EngineFix? = null,
+    val restarting: Boolean = false,
     val error: String? = null,
     val query: String = "",
 ) {
@@ -44,6 +47,11 @@ data class SopListState(
 
 class SopListViewModel(
     private val repo: SopRepository = ZeroDroidConnection.sops,
+    private val engine: pt.tiago.zerodroid.data.sop.SopEngineControl = ZeroDroidConnection.sopEngine,
+    /** Waits for the connection to come back after a daemon restart; true when it did. */
+    private val awaitRestart: suspend () -> Boolean = {
+        pt.tiago.zerodroid.data.followRestart(ZeroDroidConnection.state, ZeroDroidConnection::retryNow)
+    },
     private val scopeOverride: CoroutineScope? = null,
 ) : ViewModel() {
     private val scope: CoroutineScope get() = scopeOverride ?: viewModelScope
@@ -76,7 +84,19 @@ class SopListViewModel(
                     )
                 }
             }.awaitAll()
-            _state.update { it.copy(loading = false, cards = cards, engineOff = runs is SopResult.Unavailable, error = null) }
+            val off = runs is SopResult.Unavailable
+            _state.update { it.copy(loading = false, cards = cards, engineOff = off, engineFix = if (off) engine.fix() else null, error = null) }
+        }
+    }
+
+    /** Restarts the daemon so it wires the SOP engine, then reloads the list. */
+    fun restartEngine() {
+        if (_state.value.restarting) return
+        _state.update { it.copy(restarting = true) }
+        scope.launch {
+            val err = engine.restartAndWait(awaitRestart)
+            _state.update { it.copy(restarting = false, error = err) }
+            if (err == null) refresh()
         }
     }
 
@@ -86,7 +106,7 @@ class SopListViewModel(
         scope.launch {
             when (val r = repo.run(name, payload)) {
                 is SopResult.Ok -> onStarted(r.value)
-                SopResult.Unavailable -> _state.update { it.copy(engineOff = true) }
+                SopResult.Unavailable -> _state.update { it.copy(engineOff = true, engineFix = engine.fix()) }
                 SopResult.Forbidden -> _state.update { it.copy(error = "Your sign-in can't run workflows") }
                 is SopResult.Error -> _state.update { it.copy(error = r.message) }
             }

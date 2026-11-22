@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.Saver
@@ -69,6 +70,22 @@ fun SopHost(stack: List<SopRoute>, onStack: (List<SopRoute>) -> Unit, onEnableEn
     val keys = stack.mapIndexed { i, r -> "$i:${routeKey(r)}" }
     androidx.compose.runtime.SideEffect { stores.retain(keys.toSet()) }
     androidx.compose.runtime.DisposableEffect(stores) { onDispose { stores.clearAll() } }
+    // One "turn the engine on" action for every screen: Config when sops_dir is unset, otherwise a
+    // confirmed daemon restart (the engine is only wired at start).
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var restartAsk by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<pt.tiago.zerodroid.data.sop.EngineFix.Restart?>(null) }
+    var restarting by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var restartError by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var tick by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val engine = pt.tiago.zerodroid.data.ZeroDroidConnection.sopEngine
+    val enable: () -> Unit = {
+        scope.launch {
+            when (val f = engine.fix()) {
+                pt.tiago.zerodroid.data.sop.EngineFix.Configure -> onEnableEngine()
+                is pt.tiago.zerodroid.data.sop.EngineFix.Restart -> restartAsk = f
+            }
+        }
+    }
     BackHandler(onBack = pop)
     Box(Modifier.fillMaxSize().background(ZcTokens.background).pointerInput(Unit) { detectTapGestures { } }) {
         androidx.compose.runtime.CompositionLocalProvider(
@@ -83,15 +100,38 @@ fun SopHost(stack: List<SopRoute>, onStack: (List<SopRoute>) -> Unit, onEnableEn
                     onOpen = { push(SopRoute.Edit(it)) },
                     onRun = { name -> runAsk = name },
                     onOpenRun = { name, id -> push(SopRoute.Run(name, id)) },
-                    onEnable = onEnableEngine,
+                    onEnable = enable,
+                    refreshKey = tick,
                 )
             }
-            is SopRoute.Edit -> SopEditorEntry(top.name, onBack = pop, onReplace = { onStack(stack.dropLast(1) + it) }, onPush = push, onEnableEngine = onEnableEngine)
-            is SopRoute.Run -> SopRunEntry(top.name, top.runId, onBack = pop, onEnableEngine = onEnableEngine)
+            is SopRoute.Edit -> SopEditorEntry(top.name, onBack = pop, onReplace = { onStack(stack.dropLast(1) + it) }, onPush = push, onEnableEngine = enable)
+            is SopRoute.Run -> androidx.compose.runtime.key(tick) { SopRunEntry(top.name, top.runId, onBack = pop, onEnableEngine = enable) }
         }
         }
     }
+    restartAsk?.let { f ->
+        ConfirmDialog(
+            "Restart the daemon?", restartWarning(f.running), "Restart",
+            onConfirm = {
+                restartAsk = null
+                restarting = true
+                scope.launch {
+                    restartError = engine.restartAndWait {
+                        pt.tiago.zerodroid.data.followRestart(pt.tiago.zerodroid.data.ZeroDroidConnection.state, pt.tiago.zerodroid.data.ZeroDroidConnection::retryNow)
+                    }
+                    restarting = false
+                    tick++
+                }
+            },
+            onDismiss = { restartAsk = null },
+        )
+    }
+    if (restarting || restartError != null) {
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.BottomCenter) {
+            Toast(if (restarting) "Restarting the daemon…" else restartError, { if (!restarting) restartError = null })
+        }
+    }
     runAsk?.let { name ->
-        RunSheet(name, onDismiss = { runAsk = null }, onStarted = { id -> runAsk = null; push(SopRoute.Run(name, id)) }, onEngineOff = onEnableEngine)
+        RunSheet(name, onDismiss = { runAsk = null }, onStarted = { id -> runAsk = null; push(SopRoute.Run(name, id)) }, onEngineOff = enable)
     }
 }

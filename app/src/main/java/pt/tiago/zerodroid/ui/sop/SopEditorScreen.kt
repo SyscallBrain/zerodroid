@@ -154,7 +154,9 @@ fun SopEditorScreen(
             )
             ConnectionBanner(!online, "Reconnecting… your changes stay here until you can save.", Tone.Attention)
             ConnectionBanner(s.error != null, s.error ?: "", Tone.Danger, action = "Dismiss", onAction = vm::consumeError)
-            ZcSegmented(listOf("Flow", "Settings", "Runs"), tab, { tab = it }, Modifier.padding(horizontal = ZcTokens.gutter, vertical = 6.dp))
+            // Changing tab ends a half-made connection; a missing name opens Settings, where the field is.
+            LaunchedEffect(s.error) { if (s.error == NAME_FIRST) { vm.cancelConnect(); tab = 1 } }
+            ZcSegmented(listOf("Flow", "Settings", "Runs"), tab, { if (it != 0) vm.cancelConnect(); tab = it }, Modifier.padding(horizontal = ZcTokens.gutter, vertical = 6.dp))
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {

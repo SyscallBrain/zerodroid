@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,6 +48,7 @@ import pt.tiago.zerodroid.ui.theme.ZcTokens
 import pt.tiago.zerodroid.ui.theme.ZcType
 
 const val ENGINE_OFF_TEXT = "Workflows can't run yet. Enable the SOP engine to run them."
+const val ENGINE_RESTART_TEXT = "The SOP engine is set up. Restart the daemon to turn it on."
 
 @Composable
 fun SopListScreen(
@@ -56,13 +58,30 @@ fun SopListScreen(
     onRun: (String) -> Unit,
     onOpenRun: (String, String) -> Unit,
     onEnable: () -> Unit,
+    refreshKey: Int = 0,
 ) {
     val s by vm.state.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { vm.refresh() }
+    LaunchedEffect(refreshKey) { vm.refresh() }
+    var restartAsk by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val fix = s.engineFix
     Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
         Column(Modifier.fillMaxSize()) {
             ZcTopBar("Workflows", navigation = { ZcIconButton(ZcIcons.Back, "Back", onClick = onBack) })
-            ConnectionBanner(s.engineOff, ENGINE_OFF_TEXT, Tone.Attention, action = "Enable", onAction = onEnable)
+            ConnectionBanner(
+                s.engineOff || s.restarting,
+                when {
+                    s.restarting -> "Restarting the daemon…"
+                    fix is pt.tiago.zerodroid.data.sop.EngineFix.Restart -> ENGINE_RESTART_TEXT
+                    else -> ENGINE_OFF_TEXT
+                },
+                if (s.restarting) Tone.Live else Tone.Attention,
+                action = when {
+                    s.restarting -> null
+                    fix is pt.tiago.zerodroid.data.sop.EngineFix.Restart -> "Restart"
+                    else -> "Enable"
+                },
+                onAction = { if (fix is pt.tiago.zerodroid.data.sop.EngineFix.Restart) restartAsk = true else onEnable() },
+            )
             ConnectionBanner(s.error != null, s.error ?: "", Tone.Danger, action = "Retry", onAction = { vm.consumeError(); vm.refresh() })
             LazyColumn(
                 Modifier.fillMaxSize(),
@@ -87,6 +106,12 @@ fun SopListScreen(
                     }
                 }
             }
+        }
+        if (restartAsk && fix is pt.tiago.zerodroid.data.sop.EngineFix.Restart) {
+            ConfirmDialog(
+                "Restart the daemon?", restartWarning(fix.running), "Restart",
+                onConfirm = { restartAsk = false; vm.restartEngine() }, onDismiss = { restartAsk = false },
+            )
         }
         if (!s.loading && s.cards.isNotEmpty()) {
             ZcPrimaryButton(
@@ -146,4 +171,11 @@ fun runPill(r: SopRunDto): Pair<String, Tone> = when (r.status) {
     "cancelled" -> "Cancelled" to Tone.Neutral
     "completed" -> (r.completedAt?.let { relativeTime(it) }?.takeIf { it.isNotEmpty() }?.let { "Done · $it" } ?: "Done") to Tone.Success
     else -> r.status.replace('_', ' ') to Tone.Neutral
+}
+
+/** What a restart interrupts, in one sentence. */
+fun restartWarning(running: Int): String = when (running) {
+    0 -> "Your agents stop for a few seconds while it starts again. Nothing is running right now."
+    1 -> "Your agents stop for a few seconds. 1 reply is running now and will be cut off."
+    else -> "Your agents stop for a few seconds. $running replies are running now and will be cut off."
 }

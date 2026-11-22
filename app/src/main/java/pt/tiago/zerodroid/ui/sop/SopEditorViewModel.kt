@@ -56,6 +56,7 @@ data class EditorState(
 )
 
 private const val UNDO_CAP = 50
+const val NAME_FIRST = "Give the workflow a name first"
 private const val GRAPH_DEBOUNCE_MS = 400L
 
 /**
@@ -238,7 +239,7 @@ class SopEditorViewModel(
         val d = s.draft ?: return
         if (s.saving) return
         if (SopDraft.name(d).isBlank()) {
-            _state.update { it.copy(error = "Give the workflow a name first") }
+            _state.update { it.copy(error = NAME_FIRST) }
             return
         }
         _state.update { it.copy(saving = true, error = null) }

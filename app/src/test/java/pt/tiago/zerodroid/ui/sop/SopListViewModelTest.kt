@@ -28,7 +28,17 @@ class SopListViewModelTest {
         if (runsJson != null) on("sops/runs", runsJson) else fail("sops/runs", RpcCodes.INTERNAL_ERROR, "SOP subsystem not enabled")
     }
 
-    private fun TestScope.vm(caller: FakeCaller) = SopListViewModel(SopRepository(caller), scopeOverride = this)
+    private fun TestScope.vm(caller: FakeCaller) = SopListViewModel(
+        SopRepository(caller),
+        engine = pt.tiago.zerodroid.data.sop.SopEngineControl(pt.tiago.zerodroid.data.config.ConfigRepository(caller)),
+        awaitRestart = { true },
+        scopeOverride = this,
+    )
+
+    private fun FakeCaller.sopsDir(dir: String?) {
+        on("config/list", if (dir == null) """{"entries":[]}""" else """{"entries":[{"path":"sop.sops_dir","value":"$dir","populated":true}]}""")
+        on("session/list", """{"sessions":[]}""")
+    }
 
     @Test
     fun cardsJoinLatestRun() = runTest {
@@ -56,6 +66,33 @@ class SopListViewModelTest {
         v.refresh(); advanceUntilIdle()
         assertTrue(v.state.value.engineOff)
         assertEquals(2, v.state.value.cards.size)
+    }
+
+    @Test
+    fun engineOffWithDirSetOffersRestart() = runTest {
+        val v = vm(rpc().apply { sopsDir("shared/sops") })
+        v.refresh(); advanceUntilIdle()
+        assertEquals(pt.tiago.zerodroid.data.sop.EngineFix.Restart(0), v.state.value.engineFix)
+    }
+
+    @Test
+    fun engineOffWithoutDirOffersConfigure() = runTest {
+        val v = vm(rpc().apply { sopsDir(null) })
+        v.refresh(); advanceUntilIdle()
+        assertEquals(pt.tiago.zerodroid.data.sop.EngineFix.Configure, v.state.value.engineFix)
+    }
+
+    @Test
+    fun restartReloadsThenRefreshes() = runTest {
+        val c = rpc().apply { sopsDir("shared/sops") }
+        val v = vm(c)
+        v.refresh(); advanceUntilIdle()
+        c.on("sops/runs", """{"runs":[]}""") // engine on after the restart
+        v.restartEngine(); advanceUntilIdle()
+        assertEquals(1, c.methods().count { it == "config/reload" })
+        assertFalse(v.state.value.engineOff)
+        assertNull(v.state.value.engineFix)
+        assertFalse(v.state.value.restarting)
     }
 
     @Test

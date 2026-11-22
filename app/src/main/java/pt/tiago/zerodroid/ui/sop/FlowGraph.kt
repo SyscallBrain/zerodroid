@@ -221,6 +221,7 @@ private fun FlowCanvas(
                             connect = connect,
                             isTarget = isTarget,
                             runState = run?.get(slot.step),
+                            compact = plan.cardWidth < 200f,
                             onClick = { if (connect != null) { if (isTarget) onTarget(slot.step) } else onCard(slot.step) },
                             onLongClick = { if (connect == null && run == null) onCardLongPress(slot.step) },
                             onPort = { onPort(slot.step, it) },
@@ -407,6 +408,7 @@ private fun StepCard(
     connect: EditorMode.Connect?,
     isTarget: Boolean,
     runState: String?,
+    compact: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onPort: (PortChip) -> Unit,
@@ -446,9 +448,10 @@ private fun StepCard(
                 style = ZcType.heading.copy(fontSize = 14.sp),
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
             )
-            if (isTarget) {
+            // On narrow cards the title gets the room; the kind label and hint move out of the header.
+            if (isTarget && !compact) {
                 Text("Tap to connect", style = ZcType.label.copy(color = ZcTokens.accentStart))
-            } else if (runState == null) {
+            } else if (runState == null && !compact) {
                 Text(kindLabel(step), style = ZcType.label)
             }
             diagnostics.firstOrNull()?.let { (sev, _) ->
@@ -461,10 +464,12 @@ private fun StepCard(
                 ) { Text("!", style = ZcType.label.copy(color = c, fontSize = 12.sp)) }
             }
         }
-        val sub = node.subtitle?.takeIf { it.isNotBlank() }
-            ?: if (runState == "skipped") "Skipped" else null
+        val sub = when {
+            isTarget && compact -> "Tap to connect"
+            else -> node.subtitle?.takeIf { it.isNotBlank() } ?: if (runState == "skipped") "Skipped" else null
+        }
         if (sub != null) {
-            Text(sub, style = ZcType.small.copy(fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+            Text(sub, style = ZcType.small.copy(fontSize = 12.sp, color = if (isTarget && compact) ZcTokens.accentStart else ZcTokens.muted), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
         }
         if (chips.isNotEmpty()) {
             FlowRow(
