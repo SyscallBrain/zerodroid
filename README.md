@@ -74,6 +74,17 @@ memory all stay on the daemon.
   background while the turn runs); code sessions are also picked up from
   their history. Canvases drawn from other channels (Discord, Telegram, the
   web dashboard) are not captured.
+- **Automation**: the daemon's scheduled jobs, as on the web dashboard's Cron
+  page. Create shell or agent jobs with a cron schedule and timezone, a
+  model, session, allowed tools and memory for agent jobs, and delivery to
+  one of the agent's channels. Edit any of it later, run a job now, pause and
+  resume it, delete it, and read each run's status, duration and full
+  output. The scheduler's own switches are there too (they apply after the
+  daemon restarts). Jobs defined in `config.toml` are shown read-only, and
+  the Home card can be hidden. Creating agent jobs, pausing and resuming, and
+  editing delivery, model, session and tools need the daemon patch described
+  under [the ZeroClaw patches](#keeping-your-sessions-the-zeroclaw-patch);
+  without it the app says so instead of saving something else.
 - **Approvals**: when an agent asks for permission, approve or deny from the
   Inbox or straight from the notification. Nothing is ever approved without
   your tap.
@@ -175,6 +186,15 @@ If you run the daemon in Termux on an Android phone, build
 [`android-master-zerodroid`](https://github.com/SyscallBrain/zeroclaw/tree/android-master-zerodroid)
 instead. It carries the same two commits plus a fix for the shell tool, which
 fails in Termux because Android's SELinux blocks resolving `/system/bin/sh`.
+
+Automation needs a second, separate patch: ZeroClaw's RPC `cron/add` only
+creates shell jobs and `cron/patch` can't pause a job or change its delivery,
+model, session or tools (the web dashboard uses the HTTP gateway, which can).
+The
+[`zerodroid/cron-rpc-parity`](https://github.com/SyscallBrain/zeroclaw/tree/zerodroid/cron-rpc-parity)
+branch adds that, also on top of `master`, and `android-master-zerodroid`
+already includes it. Without it, listing, running, editing the basics and
+deleting jobs still work.
 
 Build the daemon from either branch as you would build ZeroClaw. The patch
 only adds a column to each session store, so you can go back to an official
