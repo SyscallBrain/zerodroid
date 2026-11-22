@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Workflows: build, edit and run the daemon's SOPs from the phone. Steps sit
+  in a vertical flow wired by tapping (next step, failure path, branches by
+  condition, steps that wait for others), each step opens in a sheet with its
+  instructions, suggested tools and the outputs of earlier steps, and runs and
+  their approvals are followed live. The app can turn the daemon's SOP engine
+  on, and a setting hides the Workflows card on Home.
+
 ## [0.6.0] - 2026-11-22
 
 ### Added

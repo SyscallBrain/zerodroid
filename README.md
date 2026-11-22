@@ -49,6 +49,17 @@ memory all stay on the daemon.
   delete chats, search them, and see or change the model in use.
 - **Code**: sessions rooted in a folder on the daemon's machine, like
   zerocode. Pick the folder with a browser, or work in the agent's workspace.
+  Chats and code sessions survive a daemon restart only with
+  [the ZeroClaw patch](#keeping-your-sessions-the-zeroclaw-patch).
+- **Workflows**: build and run the daemon's SOPs (step-by-step procedures)
+  from the phone. Steps sit in a vertical flow you edit by tapping: wire the
+  next step, the step to go to on failure, branches by condition and steps
+  that wait for others. Each step opens in a sheet with its instructions,
+  suggested tools and the outputs of earlier steps. Set triggers, the
+  execution mode, the agent and concurrency, run a workflow with optional
+  input, and follow its runs and approvals live. If the daemon's SOP engine
+  is off, the app can turn it on for you, and the Home card can be hidden if
+  you don't use SOPs.
 - **Approvals**: when an agent asks for permission, approve or deny from the
   Inbox or straight from the notification. Nothing is ever approved without
   your tap.
@@ -88,6 +99,17 @@ memory all stay on the daemon.
 
 </details>
 
+### Workflows
+
+| | | |
+|:-:|:-:|:-:|
+| ![The list of workflows with their triggers, step count and last run](docs/screenshots/workflows.jpg) | ![A workflow's flow with branches from the first step](docs/screenshots/workflow-flow.jpg) | ![A ten-step workflow zoomed out, with branches merging and a failure path](docs/screenshots/workflow-overview.jpg) |
+| Workflows | The flow | The whole workflow |
+| ![A step sheet with its kind, instructions, connections and branches](docs/screenshots/workflow-step.jpg) | ![Choosing what happens when a step fails](docs/screenshots/workflow-on-failure.jpg) | ![Tapping a step to connect a failure path](docs/screenshots/workflow-connect.jpg) |
+| Editing a step | If a step fails | Tap to connect |
+| ![Inserting the output of earlier steps into the instructions](docs/screenshots/workflow-instructions.jpg) | ![Workflow settings with the execution mode, agent, priority and triggers](docs/screenshots/workflow-settings.jpg) | ![Running a workflow with optional input](docs/screenshots/workflow-run.jpg) |
+| Outputs of earlier steps | Settings and triggers | Run |
+
 ## Install
 
 You need Android 10 or newer and a ZeroClaw daemon, version 0.9.0 or newer,
@@ -110,29 +132,33 @@ To build it yourself, see [CONTRIBUTING.md](CONTRIBUTING.md).
 ### Keeping your sessions: the ZeroClaw patch
 
 Everything in ZeroDroid works with an unmodified ZeroClaw 0.9.0, with one
-catch: **after the daemon restarts, the chats and code sessions you started
-from the phone disappear from the app.**
+catch: **chats and code sessions are kept only if the daemon has the patch
+below.** Without it, the sessions you started from the phone disappear from
+the app every time the daemon restarts, in both the Chats and the Code tabs.
 
 The daemon gives a remote client only the sessions it owns, and it keeps
 that ownership in memory. When the daemon restarts, the ownership is lost:
 your sessions are still in the daemon's store, but the daemon no longer
 lists them for ZeroDroid and refuses to reopen them.
 
-The fix is a small patch to ZeroClaw. It records which remote client created
-each chat session and lets that same client list and resume it while no one
-else has it open. The patch is not part of an official ZeroClaw release yet.
-It lives in the
+The fix is a small patch to ZeroClaw, in two commits: one for chats and one
+for code (ACP) sessions. It records which remote client created each session
+and lets that same client list and resume it while no one else has it open.
+The patch is not part of an official ZeroClaw release yet. It lives in the
 [`zerodroid/remote-durable-session-owner`](https://github.com/SyscallBrain/zeroclaw/tree/zerodroid/remote-durable-session-owner)
-branch on my fork, as a single commit on top of ZeroClaw 0.9.0.
+branch on my fork, on top of ZeroClaw's current `master`. You need both
+commits: a daemon with only the chat one keeps your chats but still loses
+your code sessions.
 
 If you run the daemon in Termux on an Android phone, build
-[`android-v0.9.0-zerodroid`](https://github.com/SyscallBrain/zeroclaw/tree/android-v0.9.0-zerodroid)
-instead. It adds a fix for the shell tool, which fails in Termux because
-Android's SELinux blocks resolving `/system/bin/sh`.
+[`android-master-zerodroid`](https://github.com/SyscallBrain/zeroclaw/tree/android-master-zerodroid)
+instead. It carries the same two commits plus a fix for the shell tool, which
+fails in Termux because Android's SELinux blocks resolving `/system/bin/sh`.
 
-Build the daemon from either branch as you would build ZeroClaw. The patch only
-adds a column to the session store, so you can go back to an official release
-at any time.
+Build the daemon from either branch as you would build ZeroClaw. The patch
+only adds a column to each session store, so you can go back to an official
+release at any time; you lose nothing but the ownership, and the sessions
+started from the phone stop showing up again after the next restart.
 
 ## Pairing
 
