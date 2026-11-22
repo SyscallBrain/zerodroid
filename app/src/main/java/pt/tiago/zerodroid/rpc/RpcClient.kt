@@ -77,6 +77,9 @@ open class RpcClient(
     private val identity: () -> ClientIdentity? = { null },
     private val onIdentity: (ClientIdentity) -> Unit = {},
     private val backoff: Backoff = Backoff(),
+    private val authProvider: () -> String? = { null },
+    /** Fires with the daemon's message whenever any response carries AUTH_REQUIRED, including `initialize`. */
+    private val onAuthRequired: (String) -> Unit = {},
 ) {
     private val _state = MutableStateFlow<ConnState>(ConnState.Idle)
     val state: StateFlow<ConnState> = _state.asStateFlow()
@@ -164,7 +167,7 @@ open class RpcClient(
         val id = nextId.getAndIncrement()
         initId = id
         val ident = identity()
-        val params = InitializeParams(authToken = token().orEmpty(), tuiId = ident?.tuiId, tuiSig = ident?.tuiSig)
+        val params = InitializeParams(authToken = token().orEmpty(), tuiId = ident?.tuiId, tuiSig = ident?.tuiSig, authProvider = authProvider())
         h.send(encodeRequest(id, "initialize", ZdJson.encodeToJsonElement(InitializeParams.serializer(), params)))
     }
 
@@ -188,7 +191,17 @@ open class RpcClient(
             } else {
                 pending.remove(inbound.id)?.complete(inbound.result)
             }
-            is Inbound.Failure -> if (inbound.id == initId) {
+            is Inbound.Failure -> {
+                // Settle the request first: the callback may stop this client.
+                onFailure(gen, inbound)
+                if (inbound.error.code == RpcCodes.AUTH_REQUIRED) onAuthRequired(inbound.error.message)
+            }
+        }
+    }
+
+    private fun onFailure(gen: Long, inbound: Inbound.Failure) {
+        when {
+            inbound.id == initId -> {
                 val code = inbound.error.code
                 if (code == RpcCodes.AUTH_REQUIRED || code == RpcCodes.FORBIDDEN || code == RpcCodes.VERSION_MISMATCH) {
                     running = false
@@ -200,9 +213,8 @@ open class RpcClient(
                     handle?.close(1000, "initialize failed")
                     disconnected(gen, inbound.error.message)
                 }
-            } else {
-                inbound.id?.let { pending.remove(it) }?.completeExceptionally(RpcException(inbound.error))
             }
+            else -> inbound.id?.let { pending.remove(it) }?.completeExceptionally(RpcException(inbound.error))
         }
     }
 

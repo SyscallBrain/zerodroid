@@ -113,4 +113,58 @@ class RpcClientTest {
         assertEquals("session/update", collected.first().method)
         job.cancel(); client.stop()
     }
+
+    private fun initParams(t: FakeTransport) = ZdJson.parseToJsonElement(t.sent.first()).jsonObject["params"]!!.jsonObject
+
+    @Test
+    fun initializeCarriesAuthProviderWhenSet() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val client = RpcClient(transport, "wss://x/", { "tok" }, this, authProvider = { "oidc.corp" })
+        client.start()
+        assertEquals("oidc.corp", initParams(transport)["auth_provider"]!!.jsonPrimitive.content)
+        client.stop()
+    }
+
+    @Test
+    fun initializeOmitsAuthProviderForNative() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val client = RpcClient(transport, "wss://x/", { "tok" }, this)
+        client.start()
+        assertFalse(initParams(transport).containsKey("auth_provider"))
+        client.stop()
+    }
+
+    @Test
+    fun authRequiredOnLaterRequestFiresCallback() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val seen = mutableListOf<String>()
+        val client = RpcClient(transport, "wss://x/", { "tok" }, this, onAuthRequired = { seen.add(it) })
+        client.start()
+        val initId = ZdJson.parseToJsonElement(transport.sent.first()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
+        transport.listener!!.onText(initReply(initId))
+        var thrown: Throwable? = null
+        launch { try { client.call<String, String>("x", null, kotlinx.serialization.serializer<String>(), kotlinx.serialization.serializer<String>()) } catch (e: Throwable) { thrown = e } }
+        val reqId = ZdJson.parseToJsonElement(transport.sent.last()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
+        transport.error(reqId, -32010, "token expired")
+        advanceTimeBy(1)
+        assertEquals(listOf("token expired"), seen)
+        assertTrue(thrown is RpcException)
+        client.stop()
+    }
+
+    @Test
+    fun otherRequestErrorsDoNotFireAuthCallback() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val seen = mutableListOf<String>()
+        val client = RpcClient(transport, "wss://x/", { "tok" }, this, onAuthRequired = { seen.add(it) })
+        client.start()
+        val initId = ZdJson.parseToJsonElement(transport.sent.first()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
+        transport.listener!!.onText(initReply(initId))
+        launch { runCatching { client.call<String, String>("x", null, kotlinx.serialization.serializer<String>(), kotlinx.serialization.serializer<String>()) } }
+        val reqId = ZdJson.parseToJsonElement(transport.sent.last()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
+        transport.error(reqId, -32012, "forbidden")
+        advanceTimeBy(1)
+        assertTrue(seen.isEmpty())
+        client.stop()
+    }
 }

@@ -14,8 +14,10 @@ data class InitializeParams(
     /** Identity from a previous `initialize`; presenting it keeps session ownership across reconnects. */
     @SerialName("tui_id") val tuiId: String? = null,
     @SerialName("tui_sig") val tuiSig: String? = null,
+    /** Which daemon provider verifies [authToken]; omitted means `native`. */
+    @SerialName("auth_provider") val authProvider: String? = null,
 ) {
-    override fun toString() = "InitializeParams(protocolVersion=$protocolVersion, tuiId=$tuiId)"
+    override fun toString() = "InitializeParams(authProvider=$authProvider, protocolVersion=$protocolVersion, tuiId=$tuiId)"
 }
 
 // Source: InitializeResult — crates/zeroclaw-runtime/src/rpc/types.rs

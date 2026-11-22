@@ -22,7 +22,21 @@ data class DaemonProfile(
     val deviceId: String,
     val issuedAt: Long,
     val notAfter: Long,
-)
+    /** `native` for link pairing; `oidc.<alias>` for an OIDC sign-in. */
+    val authProvider: String = "native",
+    /** Exact WSS URL when it is not `wss://host:wssPort/` (OIDC only). */
+    val wssUrl: String? = null,
+    val gatewayUrl: String? = null,
+    val oidcAlias: String? = null,
+    /** Leaf SHA-256 the user chose to trust for a gateway with an untrusted certificate. */
+    val gatewayCertSha256: String? = null,
+    val tokenObtainedAt: Long? = null,
+    val tokenExpiresAt: Long? = null,
+) {
+    val isOidc: Boolean get() = authProvider.startsWith("oidc.")
+
+    fun connectUrl(): String = wssUrl ?: "wss://$host:$wssPort/"
+}
 
 private val Context.profileDataStore by preferencesDataStore("zerodroid-profiles")
 private val PROFILES = stringPreferencesKey("json")
