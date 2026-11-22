@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-22
+
 ### Added
 
 - Workflows: build, edit and run the daemon's SOPs from the phone. Steps sit
@@ -14,6 +16,20 @@ All notable changes to this project are documented here. The format follows
   instructions, suggested tools and the outputs of earlier steps, and runs and
   their approvals are followed live. The app can turn the daemon's SOP engine
   on, and a setting hides the Workflows card on Home.
+
+### Changed
+
+- The chat header shows only what the agent is doing. The model (without
+  the provider prefix) and the reasoning level now sit above the composer,
+  where long model ids are no longer cut off, and context usage is a ring
+  around Send.
+
+### Fixed
+
+- Unpairing and pairing the same daemon again no longer loses the chats and
+  code sessions started from the phone: the app keeps its identity on that
+  daemon across an unpair. If the daemon refuses the identity, the app gets
+  a fresh one instead of stopping at an authentication error.
 
 ## [0.6.0] - 2026-11-22
 
@@ -71,7 +87,8 @@ First public release.
 - Release APKs built, signed and published by GitHub Actions, with
   `SHA256SUMS` and signed build provenance.
 
-[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/SyscallBrain/zerodroid/releases/tag/v0.4.1
