@@ -125,7 +125,9 @@ fun buildHomeModel(inputs: HomeInputs, now: Instant, zone: ZoneId, previous: Hom
     }
     val hint = when (val s = inputs.connState) {
         is ConnState.Backoff -> "Retrying in ${(s.retryInMs + 999) / 1000}s · ${s.cause}"
-        is ConnState.AuthFailed -> "${s.message}. Unpair in Config and pair again."
+        is ConnState.AuthFailed ->
+            if (s.message == pt.tiago.zerodroid.data.EXPIRED_MESSAGE) "${s.message}. Sign in again to reconnect."
+            else "${s.message}. Unpair in Config and pair again."
         else -> null
     }
     val keep = previous?.takeIf { !ready || it.loaded }

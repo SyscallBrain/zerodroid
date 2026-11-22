@@ -157,4 +157,14 @@ class HomeModelTest {
         assertEquals(listOf("news"), pinnedOffline.pinned.map { it.alias })
         assertEquals(listOf("main"), pinnedOffline.agents.map { it.alias })
     }
+
+    @Test
+    fun expiredSignInAsksToSignInAgainNotUnpair() {
+        val m = buildHomeModel(
+            HomeInputs(connState = ConnState.AuthFailed(pt.tiago.zerodroid.data.EXPIRED_MESSAGE), host = "h", daemonName = "d"),
+            java.time.Instant.EPOCH, java.time.ZoneId.of("UTC"),
+        )
+        assertTrue(m.hint!!, m.hint!!.contains("Sign in again"))
+        assertFalse(m.hint!!, m.hint!!.contains("Unpair"))
+    }
 }

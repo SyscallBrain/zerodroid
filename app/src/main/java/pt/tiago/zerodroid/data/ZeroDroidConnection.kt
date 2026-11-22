@@ -18,6 +18,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
+import pt.tiago.zerodroid.enroll.OidcToken
 import pt.tiago.zerodroid.CrashLog
 import pt.tiago.zerodroid.Perf
 import pt.tiago.zerodroid.enroll.EnrollResponse
@@ -89,6 +91,11 @@ object ZeroDroidConnection {
             .distinctUntilChanged()
             .stateIn(scope, SharingStarted.Eagerly, false)
 
+    private val _signIn = MutableStateFlow<SignInStatus>(SignInStatus.NotOidc)
+    /** Where the OIDC access token stands; [SignInStatus.NotOidc] for link-paired daemons. */
+    val signIn: StateFlow<SignInStatus> = _signIn.asStateFlow()
+    private var expiryJob: Job? = null
+
     private val _simulateUnreachable = MutableStateFlow(false)
     val simulateUnreachable: StateFlow<Boolean> = _simulateUnreachable.asStateFlow()
 
@@ -147,6 +154,7 @@ object ZeroDroidConnection {
         identity = Perf.span("phase.loadIdentity") { vault.loadIdentity() }?.let { ClientIdentity(it.id, it.sig) }
         Perf.mark("phase.paired")
         _phase.value = AppPhase.Paired(profile)
+        scheduleExpiry(profile)
         if (foreground) ensureStarted()
     }
 
@@ -158,7 +166,83 @@ object ZeroDroidConnection {
         approvals.clear()
         chats.clear()
         _phase.value = AppPhase.Paired(profile)
+        scheduleExpiry(profile)
         ensureStarted()
+    }
+
+    /**
+     * A renewed OIDC sign-in: store the token (and a new certificate if one was issued),
+     * then reconnect so `initialize` carries it. [identity] is kept, so session ownership survives.
+     */
+    suspend fun onReauthenticated(token: OidcToken, newCert: EnrollResponse?, gatewayCertSha256: String?) {
+        val current = (_phase.value as? AppPhase.Paired)?.profile ?: return
+        val now = System.currentTimeMillis() / 1000
+        var updated = current.copy(
+            tokenObtainedAt = token.obtainedAt,
+            tokenExpiresAt = token.expiresAt,
+            gatewayCertSha256 = gatewayCertSha256 ?: current.gatewayCertSha256,
+        )
+        if (newCert != null) {
+            updated = updated.copy(
+                certPem = newCert.certPem, caPem = newCert.caChainPem, deviceId = newCert.deviceId,
+                issuedAt = now, notAfter = newCert.notAfter,
+            )
+        }
+        store.save(updated)
+        vault.store(token.accessToken)
+        _phase.value = AppPhase.Paired(updated)
+        scheduleExpiry(updated)
+        stopClient()
+        ensureStarted()
+    }
+
+    /** Spec §5.6: track the token clock; at expiry close the socket instead of letting it go quiet. */
+    private fun scheduleExpiry(profile: DaemonProfile) {
+        expiryJob?.cancel()
+        expiryJob = scope.launch {
+            while (isActive) {
+                val now = System.currentTimeMillis() / 1000
+                val status = signInStatus(profile, now)
+                _signIn.value = status
+                if (status == SignInStatus.Expired) {
+                    expire()
+                    return@launch
+                }
+                val next = nextSignInCheck(profile, now) ?: return@launch
+                delay((next - now).coerceAtLeast(1) * 1000)
+            }
+        }
+    }
+
+    private fun expire() {
+        val profile = (_phase.value as? AppPhase.Paired)?.profile ?: return
+        if (!profile.isOidc) return
+        _signIn.value = SignInStatus.Expired
+        stopClient()
+        _state.value = ConnState.AuthFailed(EXPIRED_MESSAGE)
+        log("conn", "OIDC sign-in expired; waiting for the user to sign in again")
+    }
+
+    /**
+     * Opens a throwaway connection for [profile] and waits for the first `initialize` outcome.
+     * Nothing is stored, including the TUI identity the daemon hands back.
+     */
+    suspend fun probe(profile: DaemonProfile, token: String, timeoutMs: Long = 20_000): Result<Unit> {
+        val c = runCatching { buildClient(profile, token, probe = true) }.getOrElse { return Result.failure(it) }
+        return try {
+            c.start()
+            val outcome = withTimeoutOrNull(timeoutMs) {
+                c.state.first { it is ConnState.Ready || it is ConnState.AuthFailed || it is ConnState.Backoff }
+            }
+            when (outcome) {
+                is ConnState.Ready -> Result.success(Unit)
+                is ConnState.AuthFailed -> Result.failure(IllegalStateException(outcome.message))
+                is ConnState.Backoff -> Result.failure(IOException(outcome.cause))
+                else -> Result.failure(IOException("The daemon did not answer in time"))
+            }
+        } finally {
+            c.stop()
+        }
     }
 
     fun onForeground() {
@@ -183,6 +267,11 @@ object ZeroDroidConnection {
             startLock.withLock {
                 val profile = (_phase.value as? AppPhase.Paired)?.profile ?: return@withLock
                 if (_client.value != null) return@withLock
+                if (signInStatus(profile, System.currentTimeMillis() / 1000) == SignInStatus.Expired) {
+                    _signIn.value = SignInStatus.Expired
+                    _state.value = ConnState.AuthFailed(EXPIRED_MESSAGE)
+                    return@withLock
+                }
                 val token = Perf.span("conn.vaultLoad") { runCatching { vault.load() }.getOrNull() }
                 if (token == null) {
                     log("conn", "no token in the vault; pairing must be redone")
@@ -203,7 +292,7 @@ object ZeroDroidConnection {
         }
     }
 
-    private fun buildClient(profile: DaemonProfile, token: String): RpcClient {
+    private fun buildClient(profile: DaemonProfile, token: String, probe: Boolean = false): RpcClient {
         val km = TlsFactory.clientKeyManager(KeystoreIdentity.ALIAS, profile.certPem)
         val tm = TlsFactory.pinnedTrustManager(profile.caPem)
         val ssl = TlsFactory.tls13Context(km, tm)
@@ -222,16 +311,18 @@ object ZeroDroidConnection {
         }
         return RpcClient(
             transport = transport,
-            url = "wss://${profile.host}:${profile.wssPort}/",
+            url = profile.connectUrl(),
             token = { token },
             scope = scope,
-            identity = { identity },
+            identity = { if (probe) null else identity },
             onIdentity = { id ->
-                if (id != identity) {
+                if (!probe && id != identity) {
                     identity = id
                     scope.launch { runCatching { vault.storeIdentity(TuiIdentity(id.tuiId, id.tuiSig)) } }
                 }
             },
+            authProvider = { profile.authProvider.takeIf { profile.isOidc } },
+            onAuthRequired = { if (!probe && profile.isOidc) scope.launch { expire() } },
         )
     }
 
@@ -337,6 +428,8 @@ object ZeroDroidConnection {
     }
 
     private suspend fun forget() {
+        expiryJob?.cancel()
+        _signIn.value = SignInStatus.NotOidc
         runCatching { store.profiles.first().forEach { store.remove(it.id) } }
         runCatching { vault.clear() }
         runCatching { KeystoreIdentity().delete() }
