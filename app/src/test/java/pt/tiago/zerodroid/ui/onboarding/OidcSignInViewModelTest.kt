@@ -258,4 +258,19 @@ class OidcSignInViewModelTest {
         assertFalse(s.message, s.message.contains("secret-dc"))
         assertTrue(logged.none { it.contains("secret-dc") })
     }
+
+    @Test
+    fun plainHttpGatewayExplainsHowToFixIt() = runTest(UnconfinedTestDispatcher()) {
+        val http = object : OidcHttp by FakeHttp() {
+            override suspend fun probe(gw: GatewaySpec): GatewayProbe = throw javax.net.ssl.SSLException("Unable to parse TLS packet header")
+        }
+        val vm = OidcSignInViewModel(
+            OidcMode.Onboard, OidcLoginClient(http, { "csr" }, { now }, {}, { "v" }), http,
+            { _, _ -> Result.success(Unit) }, { _, _ -> }, { _, _, _ -> }, { null }, {}, scope = this, nowSeconds = { now },
+        )
+        vm.submit("127.0.0.1", "corp", null, null)
+        val s = vm.state.value as OidcState.Failed
+        assertTrue(s.message, s.message.contains("https://127.0.0.1:42617"))
+        assertTrue(s.message, s.message.contains("http://"))
+    }
 }

@@ -78,6 +78,8 @@ fun openSignInPage(context: Context, uri: String) {
 @Composable
 fun OidcSignInScreen(vm: OidcSignInViewModel, renew: Boolean, onBack: () -> Unit, onDone: () -> Unit = {}) {
     val state by vm.state.collectAsStateWithLifecycle()
+    // Held here, outside AnimatedContent, so a failed attempt does not wipe what the user typed.
+    val fields = rememberSaveable(saver = OidcFields.Saver) { OidcFields() }
     LaunchedEffect(state) { if (state == OidcState.Done) onDone() }
     OnboardingFrame {
         Spacer(Modifier.height(24.dp))
@@ -93,7 +95,7 @@ fun OidcSignInScreen(vm: OidcSignInViewModel, renew: Boolean, onBack: () -> Unit
             when (s) {
                 is OidcState.Form ->
                     if (renew) Working("Starting", "Contacting the gateway.")
-                    else OidcForm(s, onSubmit = vm::submit, onBack = cancel)
+                    else OidcForm(s, fields, onSubmit = vm::submit, onBack = cancel)
                 OidcState.CheckingGateway -> Working("Checking the gateway", "Verifying its HTTPS certificate and the sign-in providers it offers.")
                 is OidcState.TrustPrompt -> TrustPrompt(s, onTrust = vm::trust, onCancel = cancel)
                 is OidcState.Approve -> Approve(s, onCancel = cancel)
@@ -111,12 +113,13 @@ fun OidcSignInScreen(vm: OidcSignInViewModel, renew: Boolean, onBack: () -> Unit
 }
 
 @Composable
-private fun OidcForm(s: OidcState.Form, onSubmit: (String, String, String?, String?) -> Unit, onBack: () -> Unit) {
-    var host by rememberSaveable { mutableStateOf("") }
-    var alias by rememberSaveable { mutableStateOf("") }
-    var wss by rememberSaveable { mutableStateOf("") }
-    var gateway by rememberSaveable { mutableStateOf("") }
-    var advanced by rememberSaveable { mutableStateOf(s.fieldError?.first == Field.WssUrl || s.fieldError?.first == Field.GatewayUrl) }
+private fun OidcForm(s: OidcState.Form, f: OidcFields, onSubmit: (String, String, String?, String?) -> Unit, onBack: () -> Unit) {
+    var host by f.host
+    var alias by f.alias
+    var wss by f.wss
+    var gateway by f.gateway
+    var advanced by f.advanced
+    LaunchedEffect(s.fieldError) { if (s.fieldError?.first == Field.WssUrl || s.fieldError?.first == Field.GatewayUrl) advanced = true }
     val error = s.fieldError
     val submit = { onSubmit(host, alias, wss.ifBlank { null }, gateway.ifBlank { null }) }
     val uri = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next, autoCorrectEnabled = false)
@@ -262,3 +265,25 @@ private fun Approve(s: OidcState.Approve, onCancel: () -> Unit) {
         Text("Waiting for the approval…", style = ZcType.caption.copy(color = ZcTokens.muted))
     }
 }
+
+/** The sign-in form's text, kept across attempts and configuration changes. */
+private class OidcFields(
+    val host: androidx.compose.runtime.MutableState<String> = mutableStateOf(""),
+    val alias: androidx.compose.runtime.MutableState<String> = mutableStateOf(""),
+    val wss: androidx.compose.runtime.MutableState<String> = mutableStateOf(""),
+    val gateway: androidx.compose.runtime.MutableState<String> = mutableStateOf(""),
+    val advanced: androidx.compose.runtime.MutableState<Boolean> = mutableStateOf(false),
+) {
+    companion object {
+        val Saver = androidx.compose.runtime.saveable.listSaver<OidcFields, Any>(
+            save = { listOf(it.host.value, it.alias.value, it.wss.value, it.gateway.value, it.advanced.value) },
+            restore = { v ->
+                OidcFields(
+                    mutableStateOf(v[0] as String), mutableStateOf(v[1] as String), mutableStateOf(v[2] as String),
+                    mutableStateOf(v[3] as String), mutableStateOf(v[4] as Boolean),
+                )
+            },
+        )
+    }
+}
+
