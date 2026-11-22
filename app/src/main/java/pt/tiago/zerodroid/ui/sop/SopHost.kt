@@ -22,6 +22,12 @@ sealed interface SopRoute {
     data class Run(val name: String, val runId: String) : SopRoute
 }
 
+private fun routeKey(r: SopRoute) = when (r) {
+    SopRoute.List -> "L"
+    is SopRoute.Edit -> r.name?.let { "E:$it" } ?: "N"
+    is SopRoute.Run -> "R:${r.runId}"
+}
+
 /** Saves the route stack as strings: "L", "E:<name>", "N" (new), "R:<runId>:<name>". */
 val SopStackSaver: Saver<List<SopRoute>, ArrayList<String>> = Saver(
     save = { stack ->
@@ -58,8 +64,16 @@ fun SopHost(stack: List<SopRoute>, onStack: (List<SopRoute>) -> Unit, onEnableEn
     val pop = { onStack(stack.dropLast(1)) }
     val push = { r: SopRoute -> onStack(stack + r) }
     var runAsk by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    // Each stack entry owns its ViewModels; popping an entry clears them (fresh draft next time).
+    val stores = androidx.compose.runtime.remember { RouteStores() }
+    val keys = stack.mapIndexed { i, r -> "$i:${routeKey(r)}" }
+    androidx.compose.runtime.SideEffect { stores.retain(keys.toSet()) }
+    androidx.compose.runtime.DisposableEffect(stores) { onDispose { stores.clearAll() } }
     BackHandler(onBack = pop)
     Box(Modifier.fillMaxSize().background(ZcTokens.background).pointerInput(Unit) { detectTapGestures { } }) {
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner provides stores.ownerFor(keys.last()),
+        ) {
         when (top) {
             SopRoute.List -> {
                 val vm: SopListViewModel = viewModel(key = "sop-list") { SopListViewModel() }
@@ -74,6 +88,7 @@ fun SopHost(stack: List<SopRoute>, onStack: (List<SopRoute>) -> Unit, onEnableEn
             }
             is SopRoute.Edit -> SopEditorEntry(top.name, onBack = pop, onReplace = { onStack(stack.dropLast(1) + it) }, onPush = push, onEnableEngine = onEnableEngine)
             is SopRoute.Run -> SopRunEntry(top.name, top.runId, onBack = pop, onEnableEngine = onEnableEngine)
+        }
         }
     }
     runAsk?.let { name ->

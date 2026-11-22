@@ -11,7 +11,9 @@ class TriggerEditorTest {
         TriggerSourceRegistryDto.serializer(),
         """{"sources":["manual","cron","webhook","filesystem"],
            "bound":[
-             {"source":"cron","fields":[{"name":"expression","kind":"expression"}]},
+             {"source":"cron","fields":[{"name":"expression","kind":"text"}]},
+             {"source":"mqtt","fields":[{"name":"topic","kind":"text"},{"name":"condition","kind":"expression"}]},
+             {"source":"calendar","fields":[{"name":"calendar_source","kind":"text"},{"name":"calendar_ids","kind":"list"}]},
              {"source":"webhook","fields":[{"name":"path","kind":"text"}]},
              {"source":"filesystem","fields":[{"name":"path","kind":"text"},{"name":"events","options":["create","modify"],"multi":true,"kind":"list"}]}],
            "channels":[{"channel":"telegram","aliases":[{"alias":"main"}],"configured":true}]}""",
@@ -25,6 +27,13 @@ class TriggerEditorTest {
         assertEquals(obj("""{"type":"cron","expression":""}"""), blankTrigger("cron", registry))
         assertEquals(obj("""{"type":"filesystem","path":"","events":[]}"""), blankTrigger("filesystem", registry))
         assertEquals(obj("""{"type":"channel","channel":"telegram"}"""), blankTrigger("telegram", registry))
+    }
+
+    @Test
+    fun listKindStartsAsArrayAndExpressionIsLeftOut() {
+        // Mirrors the web's blankFieldValue: list → [], expression → unset (the condition builder owns it).
+        assertEquals(obj("""{"type":"calendar","calendar_source":"","calendar_ids":[]}"""), blankTrigger("calendar", registry))
+        assertEquals(obj("""{"type":"mqtt","topic":""}"""), blankTrigger("mqtt", registry))
     }
 
     @Test

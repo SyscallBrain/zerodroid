@@ -74,6 +74,16 @@ class SopRunViewModelTest {
     }
 
     @Test
+    fun pausedCheckpointAlsoReadsWaiting() {
+        // The daemon sets paused (not waiting) for a PausedCheckpoint (graph.rs project); both need the buttons.
+        val o = ZdJson.decodeFromString(
+            pt.tiago.zerodroid.rpc.proto.RunOverlayDto.serializer(),
+            """{"status":"paused_checkpoint","waiting":false,"paused":true,"nodes":[{"step":1,"state":"active"}]}""",
+        )
+        assertEquals(mapOf(1 to "waiting"), RunState(overlay = o).runStates)
+    }
+
+    @Test
     fun approveSendsDecide() = runTest {
         val c = rpc(listOf("waiting_approval", "running"))
         val v = vm(c)

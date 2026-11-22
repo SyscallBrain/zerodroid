@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,21 +82,27 @@ fun ConditionField(value: String?, operators: List<String>, onChange: (String?) 
     val ops = operators.ifEmpty { listOf("==", "!=", ">", ">=", "<", "<=", "contains") }
     val parsed = parseCondition(value, ops)
     var raw by remember { mutableStateOf(parsed.op.isEmpty() && !value.isNullOrBlank()) }
+    // Local text per part: rebuilding the parts from the trimmed condition on every keystroke would
+    // eat spaces as they are typed. Resync only when the condition changes from outside (Undo).
+    var path by remember { mutableStateOf(parsed.path.orEmpty()) }
+    var op by remember { mutableStateOf(parsed.op) }
+    var cmp by remember { mutableStateOf(parsed.value) }
+    LaunchedEffect(value) {
+        if (buildCondition(path, op, cmp) != value) {
+            val p = parseCondition(value, ops)
+            path = p.path.orEmpty(); op = p.op; cmp = p.value
+        }
+    }
+    val emit = { onChange(buildCondition(path, op.ifEmpty { if (path.isNotBlank() || cmp.isNotBlank()) ops.first() else "" }, cmp)) }
     if (raw) {
         ZcTextField(value.orEmpty(), { onChange(it.ifBlank { null }) }, "$.$placeholderPath > 1", mono = true, modifier = Modifier.fillMaxWidth())
         Text("Use the builder", style = ZcType.caption.copy(color = ZcTokens.accentStart), modifier = Modifier.padding(top = 6.dp).clickableNoRipple { raw = false })
         return
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        ZcTextField(
-            parsed.path.orEmpty(), { onChange(buildCondition(it, parsed.op.ifEmpty { ops.first() }, parsed.value)) }, placeholderPath,
-            mono = true, modifier = Modifier.weight(1.2f),
-        )
-        Picker(parsed.op.ifEmpty { "any" }, listOf("" to "any (no condition)") + ops.map { it to it }, { onChange(buildCondition(parsed.path, it, parsed.value)) }, Modifier.width(86.dp))
-        ZcTextField(
-            parsed.value, { onChange(buildCondition(parsed.path, parsed.op.ifEmpty { ops.first() }, it)) }, "value",
-            mono = true, modifier = Modifier.weight(1f),
-        )
+        ZcTextField(path, { path = it; emit() }, placeholderPath, mono = true, modifier = Modifier.weight(1.2f))
+        Picker(op.ifEmpty { "any" }, listOf("" to "any (no condition)") + ops.map { it to it }, { op = it; emit() }, Modifier.width(86.dp))
+        ZcTextField(cmp, { cmp = it; emit() }, "value", mono = true, modifier = Modifier.weight(1f))
     }
     Text("Edit as text", style = ZcType.caption.copy(color = ZcTokens.accentStart), modifier = Modifier.padding(top = 6.dp).clickableNoRipple { raw = true })
 }
@@ -158,8 +165,15 @@ private fun SuggestionRow(text: String, accent: Boolean = false, onClick: () -> 
  */
 @Composable
 fun JsonField(initial: JsonElement?, placeholder: String, onValid: (JsonElement?) -> Unit) {
-    var text by remember(initial == null) { mutableStateOf(initial?.let { ZdJson.encodeToString(JsonElement.serializer(), it) }.orEmpty()) }
+    var text by remember { mutableStateOf(initial?.let { ZdJson.encodeToString(JsonElement.serializer(), it) }.orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Resync when the value changes from outside (Undo, a list item shifting into this slot).
+    LaunchedEffect(initial) {
+        val mine = if (text.isBlank()) null else runCatching { ZdJson.parseToJsonElement(text) }.getOrNull()
+        if (mine != initial && !(mine == null && error != null)) {
+            text = initial?.let { ZdJson.encodeToString(JsonElement.serializer(), it) }.orEmpty(); error = null
+        }
+    }
     ZcTextField(
         text,
         {

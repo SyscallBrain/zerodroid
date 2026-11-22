@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -76,6 +77,8 @@ class SopEditorViewModel(
     private val undoStack = ArrayDeque<Pair<JsonObject, SopGraphDto?>>()
     private var graphJob: Job? = null
     private var lastKey: String? = null
+    private val wireLock = kotlinx.coroutines.sync.Mutex()
+    private var undoEpoch = 0L
 
     init {
         scope.launch { load(name) }
@@ -153,12 +156,14 @@ class SopEditorViewModel(
     fun openStep(n: Int?) = _state.update { it.copy(openStep = n) }
 
     fun undo() {
+        undoEpoch++ // pending wires were computed for what Undo is taking back
         val (d, g) = undoStack.removeLastOrNull() ?: return
         lastKey = null
         version++
         graphJob?.cancel()
         _state.update { it.copy(draft = d, graph = g ?: it.graph, dirty = true, canUndo = undoStack.isNotEmpty(), mode = EditorMode.Browse) }
-        if (g == null) scheduleGraph(d)
+        // The stored graph may have been on screen before its own refresh landed: re-project.
+        scheduleGraph(d)
     }
 
     // ── wiring ──────────────────────────────────────────────────────────
@@ -192,20 +197,36 @@ class SopEditorViewModel(
 
     fun disconnect(from: Int, to: Int, role: PortRole, port: Int? = null) = wire(WireEdit("disconnect", from, to, role.wire, port))
 
+    /**
+     * Wire edits run one at a time, each against the draft as it is when its turn comes (not when
+     * it was tapped), so a second tap or typing meanwhile never drops the first connection. A reply
+     * computed for a draft that changed while it was in flight is retried on the newer draft; Undo
+     * cancels every wire still pending.
+     */
     private fun wire(edit: WireEdit, pushUndo: Boolean = true) {
-        val cur = _state.value.draft ?: return
-        if (pushUndo) pushUndo(cur)
-        val v = ++version
+        val epoch = undoEpoch
         graphJob?.cancel()
-        _state.update { it.copy(canUndo = undoStack.isNotEmpty()) }
         scope.launch {
-            when (val r = repo.wireDraft(cur, edit)) {
-                is SopResult.Ok -> if (v == version) {
-                    version++
-                    _state.update { it.copy(draft = r.value.sop, graph = r.value.graph, dirty = true, toast = null) }
+            wireLock.withLock {
+                repeat(3) {
+                    if (epoch != undoEpoch) return@withLock
+                    val cur = _state.value.draft ?: return@withLock
+                    val v = version
+                    when (val r = repo.wireDraft(cur, edit)) {
+                        is SopResult.Ok -> {
+                            if (epoch != undoEpoch) return@withLock
+                            if (v == version) {
+                                if (pushUndo) pushUndo(cur)
+                                version++
+                                _state.update { it.copy(draft = r.value.sop, graph = r.value.graph, dirty = true, canUndo = undoStack.isNotEmpty(), toast = null) }
+                                return@withLock
+                            }
+                        }
+                        is SopResult.Error -> { if (epoch == undoEpoch) _state.update { it.copy(toast = r.message) }; return@withLock }
+                        else -> { if (epoch == undoEpoch) _state.update { it.copy(toast = "Couldn't change the connection") }; return@withLock }
+                    }
                 }
-                is SopResult.Error -> if (v == version) _state.update { it.copy(toast = r.message) }
-                else -> if (v == version) _state.update { it.copy(toast = "Couldn't change the connection") }
+                _state.update { it.copy(toast = "Connection not applied, try again") }
             }
         }
     }

@@ -100,13 +100,13 @@ fun SopSettingsTab(vm: SopEditorViewModel, s: EditorState) {
             Text("+ Add trigger", style = ZcType.caption.copy(color = ZcTokens.accentStart), modifier = Modifier.clickableNoRipple { addTrigger = true })
         })
         if (triggers.isEmpty()) Text("No triggers: nothing will start this workflow.", style = ZcType.small.copy(color = ZcTokens.attention))
-        triggers.forEachIndexed { i, t ->
+        triggers.forEachIndexed { i, t -> androidx.compose.runtime.key(i, triggers.size) {
             TriggerCard(
                 t, s.registry, ops,
                 onChange = { nt -> vm.edit("trigger:$i") { SopDraft.setTriggers(it, triggers.toMutableList().also { l -> l[i] = nt }) } },
                 onRemove = { vm.edit { SopDraft.setTriggers(it, triggers.filterIndexed { j, _ -> j != i }) } },
             )
-        }
+        } }
 
         Row(
             Modifier.fillMaxWidth().padding(top = 18.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, ZcTokens.hairlineStrong, RoundedCornerShape(12.dp))

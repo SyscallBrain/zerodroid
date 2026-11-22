@@ -73,6 +73,54 @@ class SopEditorViewModelTest {
         assertEquals(before, v.state.value.draft)
     }
 
+    /** A fake wire-draft that marks the draft it was given with "w<from>_<to>": true. */
+    private fun FakeCaller.markingWires() {
+        handlers["sops/wire-draft"] = { p ->
+            val o = p!!.jsonObject
+            val e = o["edit"]!!.jsonObject
+            val sop = JsonObject(o["sop"]!!.jsonObject + ("w${e["from"]}_${e["to"]}" to JsonPrimitive(true)))
+            ZdJson.parseToJsonElement("""{"sop":$sop,"graph":$graph}""")
+        }
+    }
+
+    @Test
+    fun secondWireDuringFirstKeepsBoth() = runTest {
+        val c = rpc().apply { markingWires() }
+        val v = vm(c)
+        v.startConnect(1, PortRole.Next); v.connectTo(2)
+        v.startConnect(3, PortRole.Next); v.connectTo(4)
+        runCurrent()
+        val d = v.state.value.draft!!
+        assertTrue("first connection lost", d.containsKey("w1_2"))
+        assertTrue(d.containsKey("w3_4"))
+        v.undo(); runCurrent()
+        assertTrue(v.state.value.draft!!.containsKey("w1_2"))
+        assertFalse(v.state.value.draft!!.containsKey("w3_4"))
+    }
+
+    @Test
+    fun editDuringWireKeepsBoth() = runTest {
+        val c = rpc().apply { markingWires() }
+        val v = vm(c)
+        v.startConnect(1, PortRole.Next); v.connectTo(2)
+        v.edit { SopDraft.set(it, "description", JsonPrimitive("typed")) }
+        runCurrent()
+        val d = v.state.value.draft!!
+        assertTrue(d.containsKey("w1_2"))
+        assertEquals("typed", d["description"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun undoReprojectsGraph() = runTest {
+        val c = rpc()
+        val v = vm(c)
+        v.edit { SopDraft.deleteStep(it, 3) }
+        v.undo()
+        val before = c.methods().count { it == "sops/graph-draft" }
+        advanceTimeBy(401); runCurrent()
+        assertTrue(c.methods().count { it == "sops/graph-draft" } > before)
+    }
+
     @Test
     fun connectSendsRoleAndPort() = runTest {
         val c = rpc().apply { on("sops/wire-draft", """{"sop":$loaded,"graph":$graph}""") }

@@ -234,7 +234,7 @@ private fun BranchesSection(vm: SopEditorViewModel, step: JsonObject, n: Int, op
         Text("No branches. Add one to send the run down different paths by a condition.", style = ZcType.small)
         return
     }
-    rules.forEachIndexed { i, r ->
+    rules.forEachIndexed { i, r -> androidx.compose.runtime.key(n, i, rules.size) {
         val update = { nr: JsonObject -> vm.edit("rule:$n:$i") { SopDraft.setSwitchRules(it, n, rules.toMutableList().also { l -> l[i] = nr }) } }
         Column(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, ZcTokens.accentEnd.copy(alpha = 0.3f), RoundedCornerShape(12.dp)).padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -251,7 +251,7 @@ private fun BranchesSection(vm: SopEditorViewModel, step: JsonObject, n: Int, op
             val goto = (r["goto"] as? JsonPrimitive)?.content?.toIntOrNull()
             ZcGhostButton(if (goto != null) "Goes to step $goto · change" else "Pick the step it goes to", compact = true) { vm.startConnect(n, PortRole.Branch, i) }
         }
-    }
+    } }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -286,7 +286,7 @@ private fun Advanced(vm: SopEditorViewModel, s: EditorState, step: JsonObject, n
     }
     FieldLabel("Planned tool calls")
     val calls = (step["calls"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
-    calls.forEachIndexed { i, c ->
+    calls.forEachIndexed { i, c -> androidx.compose.runtime.key(n, i, calls.size) {
         val put = { nc: JsonObject? -> vm.edit("call:$n:$i") { d -> SopDraft.setStep(d, n, listOf("calls"), JsonArray(calls.toMutableList().also { l -> if (nc == null) l.removeAt(i) else l[i] = nc }).takeIf { it.isNotEmpty() }) } }
         Column(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, ZcTokens.hairlineStrong, RoundedCornerShape(12.dp)).padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -296,7 +296,7 @@ private fun Advanced(vm: SopEditorViewModel, s: EditorState, step: JsonObject, n
             Spacer(Modifier.height(6.dp))
             JsonField(c["args"], """{"arg": "value"}""") { a -> put(JsonObject(c.toMutableMap().apply { if (a == null) remove("args") else put("args", a) })) }
         }
-    }
+    } }
     Text("+ Add planned call", style = ZcType.caption.copy(color = ZcTokens.accentStart), modifier = Modifier.padding(vertical = 6.dp).clickableNoRipple {
         vm.edit { d -> SopDraft.setStep(d, n, listOf("calls"), JsonArray(calls + buildJsonObject { put("tool", ""); put("args", JsonObject(emptyMap())) })) }
     })

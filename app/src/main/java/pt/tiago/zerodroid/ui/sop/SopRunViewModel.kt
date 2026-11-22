@@ -29,10 +29,10 @@ data class RunState(
     val error: String? = null,
     val deciding: Boolean = false,
 ) {
-    /** Per-step state for the graph; the step a waiting run is paused on reads `waiting`. */
+    /** Per-step state for the graph; the step a run waits on (approval or a paused checkpoint) reads `waiting`. */
     val runStates: Map<Int, String>
         get() = overlay?.nodes?.associate { n ->
-            n.step to if (overlay.waiting && n.state == "active") "waiting" else n.state
+            n.step to if ((overlay.waiting || overlay.paused) && n.state == "active") "waiting" else n.state
         }.orEmpty()
 }
 

@@ -47,7 +47,14 @@ fun blankTrigger(source: String, registry: TriggerSourceRegistryDto): JsonObject
     val fields = registry.bound.firstOrNull { it.source == source }?.fields.orEmpty()
     return buildJsonObject {
         put("type", source)
-        fields.forEach { f -> if (f.multi) put(f.name, JsonArray(emptyList())) else put(f.name, "") }
+        // As the web's blankFieldValue: list → [], expression → unset (the condition builder owns it).
+        fields.forEach { f ->
+            when {
+                f.kind == "expression" -> Unit
+                f.kind == "list" || f.multi -> put(f.name, JsonArray(emptyList()))
+                else -> put(f.name, "")
+            }
+        }
     }
 }
 
@@ -98,7 +105,7 @@ fun TriggerCard(t: JsonObject, registry: TriggerSourceRegistryDto?, ops: List<St
                     Text("This channel isn't configured on the daemon yet.", style = ZcType.small.copy(color = ZcTokens.attention))
                 }
             }
-            else -> registry?.bound?.firstOrNull { it.source == type }?.fields.orEmpty().forEach { f ->
+            else -> registry?.bound?.firstOrNull { it.source == type }?.fields.orEmpty().filter { it.kind != "expression" }.forEach { f ->
                 Text(f.name.replace('_', ' ').replaceFirstChar { it.uppercase() }, style = ZcType.caption, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
                 when {
                     f.multi && f.options.isNotEmpty() -> FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -110,6 +117,14 @@ fun TriggerCard(t: JsonObject, registry: TriggerSourceRegistryDto?, ops: List<St
                             })
                         }
                     }
+                    f.kind == "list" -> {
+                        val cur = (t[f.name] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.content }
+                        ZcTextField(
+                            cur.joinToString(", "),
+                            { txt -> set(f.name, JsonArray(txt.split(',').map { it.trim() }.filter { it.isNotEmpty() }.map(::JsonPrimitive))) },
+                            "${f.name.replace('_', ' ')}, separated by commas", modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                     f.options.isNotEmpty() -> Picker(t.str(f.name)?.ifBlank { null } ?: "Choose…", f.options.map { it to it }, { set(f.name, JsonPrimitive(it)) })
                     else -> ZcTextField(
                         t.str(f.name).orEmpty(), { set(f.name, JsonPrimitive(it)) },
@@ -119,7 +134,8 @@ fun TriggerCard(t: JsonObject, registry: TriggerSourceRegistryDto?, ops: List<St
                 }
             }
         }
-        if (type != "manual" && type != "cron" && type != "webhook") {
+        val hasCondition = type == "channel" || registry?.bound?.firstOrNull { it.source == type }?.fields.orEmpty().any { it.kind == "expression" }
+        if (hasCondition) {
             Spacer(Modifier.height(8.dp))
             Text("Only when", style = ZcType.caption)
             Spacer(Modifier.height(4.dp))
