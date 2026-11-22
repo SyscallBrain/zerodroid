@@ -260,6 +260,11 @@ class ChatSessions(
     }
 
     /** [code] marks a Code session; a session already known keeps its mode unless [code] is true. */
+    /** Names of tools called in the chats loaded in this process (for SOP tool suggestions). */
+    fun seenToolNames(): Set<String> = sessions.values.flatMapTo(mutableSetOf()) { c ->
+        c.state.value.items.mapNotNull { (it as? ChatItem.Tool)?.name?.takeIf { n -> n != "tool" } }
+    }
+
     fun get(sessionId: String, agentAlias: String, code: Boolean = false): ChatSession = sessions.getOrPut(sessionId) {
         ChatSession(sessionId, agentAlias, rpc, approvals, scope, clock, keepImage = { img -> imageCache?.put(img) }, code = code).also { s ->
             scope.launch {
