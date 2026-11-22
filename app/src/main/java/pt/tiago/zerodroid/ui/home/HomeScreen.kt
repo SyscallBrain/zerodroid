@@ -76,11 +76,13 @@ fun HomeScreen(
     /** SOP runs waiting for a decision: tints the Workflows tile. */
     workflowsWaiting: Int = 0,
     onOpenCanvas: () -> Unit = {},
+    onOpenAutomation: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val workflows by viewModel.workflows.collectAsStateWithLifecycle()
     val showWorkflows by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showWorkflowsTile.collectAsStateWithLifecycle()
     val showCanvas by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showCanvasTile.collectAsStateWithLifecycle()
+    val showAutomation by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showAutomationTile.collectAsStateWithLifecycle()
     val m by viewModel.model.collectAsStateWithLifecycle()
     pt.tiago.zerodroid.RecomposeProbe("HomeScreen")
     pt.tiago.zerodroid.Perf.mark("home.firstComposition")
@@ -193,6 +195,26 @@ fun HomeScreen(
                     caption = "Charts and pages agents drew",
                     onClick = onOpenCanvas,
                     modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (showAutomation) item("automation") {
+                val failing = m.automationFailing
+                val degraded = m.automationDegraded
+                // Same words and colours as the list's pills: red "Failed", amber "Degraded".
+                val (caption, pill) = when {
+                    failing > 0 -> "$failing failed last run" to ("Failed" to Tone.Danger)
+                    degraded > 0 -> "$degraded degraded last run" to ("Degraded" to Tone.Attention)
+                    else -> "Scheduled jobs" to null
+                }
+                ZcTile(
+                    "Automation",
+                    m.automationJobs?.toString(),
+                    suffix = "jobs",
+                    caption = caption,
+                    loading = !m.loaded,
+                    onClick = onOpenAutomation,
+                    modifier = Modifier.fillMaxWidth(),
+                    footer = pill?.let { (label, tone) -> { pt.tiago.zerodroid.ui.kit.StatusPill(label, tone) } },
                 )
             }
             if (m.core.isNotEmpty() || m.channels.isNotEmpty()) {

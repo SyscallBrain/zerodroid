@@ -74,6 +74,17 @@ memory all stay on the daemon.
   background while the turn runs); code sessions are also picked up from
   their history. Canvases drawn from other channels (Discord, Telegram, the
   web dashboard) are not captured.
+- **Automation**: the daemon's scheduled jobs, as on the web dashboard's Cron
+  page. Create shell or agent jobs with a cron schedule and timezone, a
+  model, session, allowed tools and memory for agent jobs, and delivery to
+  one of the agent's channels. Edit any of it later, run a job now, pause and
+  resume it, delete it, and read each run's status, duration and full
+  output. The scheduler's own switches are there too (they apply after the
+  daemon restarts). Jobs defined in `config.toml` are shown read-only, and
+  the Home card can be hidden. **Automation needs a patched daemon**: see
+  [Automation: the cron patch](#automation-the-cron-patch). If you don't
+  want to patch the daemon, don't use Automation; hide its card and nothing
+  else changes.
 - **Approvals**: when an agent asks for permission, approve or deny from the
   Inbox or straight from the notification. Nothing is ever approved without
   your tap.
@@ -131,6 +142,15 @@ memory all stay on the daemon.
 | ![Home with the Canvas card showing four saved canvases](docs/screenshots/canvas-home.jpg) | ![The list of saved canvases with their type, frame count and agent](docs/screenshots/canvas-list.jpg) | ![A bar chart an agent drew, opened from the list](docs/screenshots/canvas-chart.jpg) |
 | The Canvas card | Saved canvases | A chart an agent drew |
 
+### Automation
+
+| | | |
+|:-:|:-:|:-:|
+| ![The Automation card on Home with eight jobs and one degraded run](docs/screenshots/automation-home.jpg) | ![The list of scheduled jobs with their agent, type, schedule, status and next run](docs/screenshots/automation-list.jpg) | ![The scheduler settings sheet](docs/screenshots/automation-scheduler.jpg) |
+| The Automation card | Scheduled jobs | Scheduler settings |
+| ![A new shell job with its name, agent, schedule and command](docs/screenshots/automation-shell-job.jpg) | ![A new agent job with its prompt, model, session, tools, memory and delivery to a channel](docs/screenshots/automation-agent-job.jpg) | |
+| A shell job | An agent job with delivery | |
+
 ## Install
 
 You need Android 10 or newer and a ZeroClaw daemon, version 0.9.0 or newer,
@@ -152,9 +172,9 @@ To build it yourself, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Keeping your sessions: the ZeroClaw patch
 
-Everything in ZeroDroid works with an unmodified ZeroClaw 0.9.0, with one
-catch: **chats and code sessions are kept only if the daemon has the patch
-below.** Without it, the sessions you started from the phone disappear from
+Everything in ZeroDroid except Automation works with an unmodified ZeroClaw
+0.9.0, with one catch: **chats and code sessions are kept only if the daemon
+has the patch below.** Without it, the sessions you started from the phone disappear from
 the app every time the daemon restarts, in both the Chats and the Code tabs.
 
 The daemon gives a remote client only the sessions it owns, and it keeps
@@ -180,6 +200,31 @@ Build the daemon from either branch as you would build ZeroClaw. The patch
 only adds a column to each session store, so you can go back to an official
 release at any time; you lose nothing but the ownership, and the sessions
 started from the phone stop showing up again after the next restart.
+
+### Automation: the cron patch
+
+Automation is the only feature that needs a second patch, and you need it
+only if you want to use Automation. Everything else in the app works without
+it.
+
+ZeroDroid talks to the daemon over RPC, and ZeroClaw's RPC can't do what the
+web dashboard does over the HTTP gateway: its `cron/add` only creates shell
+jobs, and `cron/patch` can't pause or resume a job or change its delivery,
+model, session or tools. The
+[`zerodroid/cron-rpc-parity`](https://github.com/SyscallBrain/zeroclaw/tree/zerodroid/cron-rpc-parity)
+branch adds all of that, on top of `master`. Creating an agent job still
+needs an admin pairing, as on the gateway. `android-master-zerodroid`
+already includes this patch, so a Termux build from that branch has both.
+The patch changes no stored data: the jobs database is the same with or
+without it.
+
+On an unpatched daemon the Automation screens still list your jobs and their
+runs, and you can run a job now, edit its name, schedule and command, and
+delete it. Anything that needs the patch is refused with a message saying
+the daemon needs updating, and the app never saves something other than what
+you asked for. If you'd rather not patch the daemon, simply don't use
+Automation, and hide its card from Home in Config → ZeroDroid & pairing →
+Home → Show Automation card.
 
 ## Pairing
 

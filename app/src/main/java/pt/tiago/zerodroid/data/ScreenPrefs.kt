@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 private val KEEP_SCREEN_ON = booleanPreferencesKey("chat_keep_screen_on")
 private val SHOW_WORKFLOWS_TILE = booleanPreferencesKey("home_show_workflows")
 private val SHOW_CANVAS_TILE = booleanPreferencesKey("home_show_canvas")
+private val SHOW_AUTOMATION_TILE = booleanPreferencesKey("home_show_automation")
 
 /** Phone-only display preferences. */
 class ScreenPrefs(private val context: Context) {
@@ -26,11 +27,16 @@ class ScreenPrefs(private val context: Context) {
     /** Whether Home shows the Canvas tile. Hiding it does not stop canvases from being saved. */
     val showCanvasTile: StateFlow<Boolean> = _showCanvasTile.asStateFlow()
 
+    private val _showAutomationTile = MutableStateFlow(true)
+    /** Whether Home shows the Automation tile. Hiding it does not stop jobs from running. */
+    val showAutomationTile: StateFlow<Boolean> = _showAutomationTile.asStateFlow()
+
     suspend fun load() {
         val prefs = runCatching { context.uiStore.data.first() }.getOrNull()
         _keepScreenOn.value = prefs?.get(KEEP_SCREEN_ON) ?: false
         _showWorkflowsTile.value = prefs?.get(SHOW_WORKFLOWS_TILE) ?: true
         _showCanvasTile.value = prefs?.get(SHOW_CANVAS_TILE) ?: true
+        _showAutomationTile.value = prefs?.get(SHOW_AUTOMATION_TILE) ?: true
     }
 
     suspend fun setKeepScreenOn(on: Boolean) {
@@ -46,5 +52,10 @@ class ScreenPrefs(private val context: Context) {
     suspend fun setShowCanvasTile(on: Boolean) {
         _showCanvasTile.value = on
         runCatching { context.uiStore.edit { it[SHOW_CANVAS_TILE] = on } }
+    }
+
+    suspend fun setShowAutomationTile(on: Boolean) {
+        _showAutomationTile.value = on
+        runCatching { context.uiStore.edit { it[SHOW_AUTOMATION_TILE] = on } }
     }
 }

@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-22
+
+### Added
+
+- Automation: the daemon's scheduled jobs on the phone, as on the web
+  dashboard's Cron page. Create shell or agent jobs with a cron schedule and
+  timezone (agent jobs also take a model, session, allowed tools and
+  memory), deliver the result to one of the agent's channels, edit, run now,
+  pause, resume and delete jobs, and read each run's status, duration and
+  full output. The scheduler's own settings are there too. A Home card shows
+  the job count and any failed or degraded last runs, and can be hidden.
+  Automation needs the `zerodroid/cron-rpc-parity` daemon patch (included in
+  `android-master-zerodroid`); without it the app lists and runs jobs but
+  refuses, with a message, whatever the daemon can't do over RPC. If you
+  don't want to patch the daemon, don't use Automation and hide its card.
+
 ## [0.8.0] - 2026-11-22
 
 ### Added
@@ -102,7 +118,8 @@ First public release.
 - Release APKs built, signed and published by GitHub Actions, with
   `SHA256SUMS` and signed build provenance.
 
-[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.5.0...v0.6.0
