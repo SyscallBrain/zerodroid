@@ -86,6 +86,9 @@ object ZeroDroidConnection {
         private set
     lateinit var codeFolders: CodeFolders
         private set
+    /** Canvas frames drawn in this phone's chats, per daemon. */
+    lateinit var canvas: pt.tiago.zerodroid.data.canvas.CanvasArchive
+        private set
 
     /** True while a phone-started turn runs or an approval waits: keep the socket up in the background. */
     val holdForeground: StateFlow<Boolean> =
@@ -137,6 +140,11 @@ object ZeroDroidConnection {
             pt.tiago.zerodroid.data.config.DataStoreDraftPersistence(appContext),
         )
         chats.imageCache = ImageCache(java.io.File(appContext.filesDir, "images"))
+        canvas = pt.tiago.zerodroid.data.canvas.CanvasArchive(java.io.File(appContext.filesDir, "canvas"), scope)
+        chats.canvasSink = canvas
+        scope.launch {
+            phase.collect { p -> if (p is AppPhase.Paired) runCatching { canvas.bind(p.profile.daemonKey()) } }
+        }
         pins = PinStore(DataStorePinPersistence(appContext))
         scope.launch { pins.load() }
         screen = ScreenPrefs(appContext)
