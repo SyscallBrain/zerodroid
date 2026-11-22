@@ -18,9 +18,6 @@ import pt.tiago.zerodroid.ui.theme.ZcType
 // Temporary stand-ins replaced by Tasks 8 (StepSheet), 9 (SopSettingsTab) and 10 (RunsTab, SopRunEntry).
 
 @Composable
-fun SopSettingsTab(vm: SopEditorViewModel, s: EditorState) = Column(Modifier.padding(ZcTokens.gutter)) { Text("Settings", style = ZcType.small) }
-
-@Composable
 fun RunsTab(name: String, isNew: Boolean, onOpenRun: (String) -> Unit, onEnableEngine: () -> Unit) =
     Column(Modifier.padding(ZcTokens.gutter)) { Text("Runs", style = ZcType.small) }
 
