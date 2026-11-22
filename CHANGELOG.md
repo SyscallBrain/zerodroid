@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-22
+
 ### Added
 
 - Sign in with OIDC, like `zerocode login`, for daemons behind an identity
@@ -60,6 +62,7 @@ First public release.
 - Release APKs built, signed and published by GitHub Actions, with
   `SHA256SUMS` and signed build provenance.
 
-[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/SyscallBrain/zerodroid/releases/tag/v0.4.1
