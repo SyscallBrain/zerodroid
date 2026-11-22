@@ -111,8 +111,10 @@ private const val ASKED_NOTIF = "asked_notifications"
 @Composable
 private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenConsumed: () -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    var chatId by rememberSaveable { mutableStateOf<String?>(null) }
-    var chatAlias by rememberSaveable { mutableStateOf<String?>(null) }
+    // A cold start from a notification opens straight on the chat: Home is never drawn first and
+    // the chat does not slide in (AnimatedContent does not animate its initial state).
+    var chatId by rememberSaveable { mutableStateOf(externalOpen?.sessionId) }
+    var chatAlias by rememberSaveable { mutableStateOf(externalOpen?.agentAlias) }
     var gallery by rememberSaveable { mutableStateOf(false) }
     var agentAlias by rememberSaveable { mutableStateOf<String?>(null) }
     var configJump by remember { mutableStateOf<pt.tiago.zerodroid.ui.config.ConfigRoute?>(null) }

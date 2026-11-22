@@ -10,7 +10,8 @@ All notable changes to this project are documented here. The format follows
 
 - A notification when an agent finishes a turn started on this phone while
   the app is in the background: the start of its reply, or why it failed or
-  stopped. Tapping it opens the chat. Turns you stop yourself stay silent.
+  stopped. Tapping it opens the chat, straight away even when the app was
+  closed. Turns you stop yourself stay silent.
   It has its own "Finished turns" channel.
 
 ### Fixed
