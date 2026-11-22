@@ -263,6 +263,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                         onOpenAgent = { pt.tiago.zerodroid.Perf.navigate("agent"); agentAlias = it },
                         onOpenWorkflows = { pt.tiago.zerodroid.Perf.navigate("workflows"); sopStack = listOf(pt.tiago.zerodroid.ui.sop.SopRoute.List) },
                         workflowsWaiting = gateCount,
+                        onOpenCanvas = { pt.tiago.zerodroid.Perf.navigate("canvas"); canvasRoute = pt.tiago.zerodroid.ui.canvas.CanvasRoute.List },
                     )
                     1 -> ChatsScreen(viewModel<ChatsViewModel>(), active = active, onOpen = openChat)
                     TAB_CODE -> CodeScreen(viewModel<CodeViewModel>(), active = active, onOpen = openChat)
@@ -306,6 +307,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                         vm, onBack = { pt.tiago.zerodroid.Perf.navigate(tabNames.getOrElse(tab) { "config" }); chatId = null }, onFirstSend = askNotifications,
                         onOpenChat = openChat,
                         onOpenAgent = { agentAlias = it },
+                        onOpenCanvas = { c, f -> canvasRoute = pt.tiago.zerodroid.ui.canvas.CanvasRoute.View(c, f, fromChat = true) },
                     )
                 }
             } else {
