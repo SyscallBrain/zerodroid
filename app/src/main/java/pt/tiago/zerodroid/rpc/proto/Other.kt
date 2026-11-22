@@ -4,25 +4,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
-// Source: CronJob — crates/zeroclaw-runtime/src/cron/types.rs (MVP subset, lenient)
-@Serializable
-data class CronJob(
-    val id: String,
-    val expression: String,
-    val name: String? = null,
-    val prompt: String? = null,
-    @SerialName("job_type") val jobType: String? = null,
-    @SerialName("agent_alias") val agentAlias: String? = null,
-    val enabled: Boolean = true,
-    /** RFC 3339 UTC timestamp of the next scheduled run. */
-    @SerialName("next_run") val nextRun: String? = null,
-    @SerialName("last_status") val lastStatus: String? = null,
-)
-
-// Source: CronListResult — crates/zeroclaw-runtime/src/rpc/types.rs
-@Serializable
-data class CronListResult(val jobs: List<CronJob>)
-
 // Source: CostSummary — crates/zeroclaw-config/src/cost/types.rs (MVP subset, lenient)
 @Serializable
 data class CostSummary(

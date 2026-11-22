@@ -76,6 +76,7 @@ object ZeroDroidConnection {
     val sessions = SessionsRepository(rpc)
     val sopGates = SopGates(rpc)
     val sops = pt.tiago.zerodroid.data.sop.SopRepository(rpc)
+    val crons = pt.tiago.zerodroid.data.cron.CronRepository(rpc, pt.tiago.zerodroid.data.config.ConfigRepository(rpc))
     val sopEngine = pt.tiago.zerodroid.data.sop.SopEngineControl(pt.tiago.zerodroid.data.config.ConfigRepository(rpc))
     val models = ModelInfo(rpc, pt.tiago.zerodroid.data.config.ConfigRepository(rpc))
     lateinit var config: pt.tiago.zerodroid.data.config.ConfigEditor
