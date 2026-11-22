@@ -231,7 +231,7 @@ class OidcSignInViewModelTest {
         val vm = vm(this, rec = rec)
         vm.submit("h", "corp", null, null)
         val s = vm.state.value as OidcState.Failed
-        assertTrue(s.message, s.message.contains("[tls].sans"))
+        assertTrue(s.message, s.message.contains("[wss].sans"))
     }
 
     @Test

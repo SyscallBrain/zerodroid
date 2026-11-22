@@ -156,6 +156,37 @@ printed. The link carries a long-lived token: do not screenshot or share it.
 `tools/pair-phone.sh --help` lists the options (ports, data directory,
 device name).
 
+### Sign in with OIDC
+
+If the daemon's operator set up an identity provider, ZeroDroid can sign in
+the way `zerocode login` does (ZeroClaw v0.9.0 or later), with no pairing link.
+Tap *Sign in with OIDC*, enter the daemon host and the provider alias (for
+example `corp`), and approve the sign-in in the browser. *Advanced* takes a
+custom WSS URL (default `wss://<host>:9781/`) and gateway URL (default
+`https://<host>:42617`, or the HTTPS URL of the proxy in front of it).
+
+The daemon needs, as for `zerocode login`:
+
+- an `[oidc.<alias>]` provider with the device authorization grant enabled at
+  the identity provider;
+- a permission mapping that gives the user `sessions:create` and at least one
+  allowed agent (ZeroDroid assumes operator-level access in v1);
+- WSS enabled, with the host the phone uses in `[wss].sans`;
+- the gateway reachable over HTTPS. If Android does not trust its certificate,
+  the app shows the SHA-256 fingerprint and pins that exact certificate once
+  you accept it.
+
+ZeroClaw does not hand out refresh tokens, so ZeroDroid asks you to renew the
+sign-in five minutes before the access token expires (sooner for very short
+tokens). Renewing keeps a running turn going; if the token runs out, the app
+disconnects and waits for you to sign in again. Give the client an access
+token lifetime of **30 to 60 minutes**: with Keycloak's 5-minute default you
+would be asked every few minutes.
+
+To retire a phone, revoke its device on the daemon:
+`zeroclaw security revoke-client-cert --device <id>` (the device ID is in
+*Config → ZeroDroid & pairing*).
+
 ## How it works
 
 ZeroDroid speaks the daemon's JSON-RPC protocol over WebSocket with TLS 1.3

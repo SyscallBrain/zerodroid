@@ -49,7 +49,7 @@ private const val CERT_REUSE_MIN_S = 3600L
 /** Operator hints for a WSS handshake that fails after the gateway accepted the sign-in (spec §5.4). */
 internal fun wssFailureHint(cause: String, host: String): String = when {
     "Hostname" in cause || "not verified" in cause ->
-        "The daemon's WSS certificate does not cover $host. Add it to [tls].sans on the daemon."
+        "The daemon's WSS certificate does not cover $host. Add it to [wss].sans on the daemon."
     "Trust anchor" in cause || "CertPath" in cause -> "The WSS certificate is not signed by the daemon CA."
     else -> cause
 }
