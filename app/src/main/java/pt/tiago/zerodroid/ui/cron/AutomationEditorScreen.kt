@@ -78,6 +78,7 @@ fun AutomationEditorScreen(vm: AutomationEditorViewModel, onBack: () -> Unit, on
             actions = {
                 ZcPrimaryButton(
                     if (s.saving) "Saving…" else "Save", compact = true,
+                    modifier = Modifier.padding(end = 12.dp),
                     enabled = s.canSave && conn is ConnState.Ready,
                     onClick = vm::save,
                 )
@@ -136,8 +137,8 @@ fun AutomationEditorScreen(vm: AutomationEditorViewModel, onBack: () -> Unit, on
                 ZcTextField(d.model, { v -> set { it.copy(model = v) } }, "Agent default", mono = true, modifier = Modifier.fillMaxWidth())
                 FieldLabel("Session")
                 ZcSegmented(listOf("Isolated", "Main"), if (d.sessionMain) 1 else 0, { i -> set { it.copy(sessionMain = i == 1) } })
-                FieldLabel("Allowed tools")
-                ZcTextField(d.allowedTools, { v -> set { it.copy(allowedTools = v) } }, "All the agent's tools (comma-separated to limit)", mono = true, modifier = Modifier.fillMaxWidth())
+                FieldLabel("Allowed tools (comma-separated)")
+                ZcTextField(d.allowedTools, { v -> set { it.copy(allowedTools = v) } }, "All the agent's tools", mono = true, modifier = Modifier.fillMaxWidth())
                 SwitchLine("Use memory", "Recall and store memories during the run.", d.usesMemory) { v -> set { it.copy(usesMemory = v) } }
             } else {
                 FieldLabel("Command")

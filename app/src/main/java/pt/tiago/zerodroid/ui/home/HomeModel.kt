@@ -46,8 +46,10 @@ data class HomeModel(
     val pinned: List<AgentRowModel> = emptyList(),
     /** Scheduled jobs on the daemon; null until the first `cron/list`. */
     val automationJobs: Int? = null,
-    /** Enabled jobs whose last run failed. */
+    /** Enabled jobs whose last run failed ("error"). */
     val automationFailing: Int = 0,
+    /** Enabled jobs whose last run ended in any other non-ok status, e.g. "degraded". */
+    val automationDegraded: Int = 0,
 ) {
     val headline: String get() = if (headlineLead.isEmpty()) headlineAccent else "$headlineLead $headlineAccent"
 }
@@ -187,7 +189,9 @@ fun buildHomeModel(inputs: HomeInputs, now: Instant, zone: ZoneId, previous: Hom
         costMonth = inputs.costMonth?.let(::formatUsd) ?: keep?.costMonth,
         pinned = pinned,
         automationJobs = inputs.crons?.size ?: keep?.automationJobs,
-        automationFailing = inputs.crons?.count { it.enabled && it.lastStatus != null && it.lastStatus != "ok" } ?: keep?.automationFailing ?: 0,
+        automationFailing = inputs.crons?.count { it.enabled && it.lastStatus == "error" } ?: keep?.automationFailing ?: 0,
+        automationDegraded = inputs.crons?.count { it.enabled && it.lastStatus !in setOf(null, "ok", "error") }
+            ?: keep?.automationDegraded ?: 0,
         connection = pill,
         headlineLead = lead,
         headlineAccent = accent,

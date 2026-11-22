@@ -199,15 +199,22 @@ fun HomeScreen(
             }
             if (showAutomation) item("automation") {
                 val failing = m.automationFailing
+                val degraded = m.automationDegraded
+                // Same words and colours as the list's pills: red "Failed", amber "Degraded".
+                val (caption, pill) = when {
+                    failing > 0 -> "$failing failed last run" to ("Failed" to Tone.Danger)
+                    degraded > 0 -> "$degraded degraded last run" to ("Degraded" to Tone.Attention)
+                    else -> "Scheduled jobs" to null
+                }
                 ZcTile(
                     "Automation",
                     m.automationJobs?.toString(),
                     suffix = "jobs",
-                    caption = if (failing > 0) "$failing failed last run" else "Scheduled jobs",
+                    caption = caption,
                     loading = !m.loaded,
                     onClick = onOpenAutomation,
                     modifier = Modifier.fillMaxWidth(),
-                    footer = if (failing > 0) { { pt.tiago.zerodroid.ui.kit.StatusPill("Failed", Tone.Danger) } } else null,
+                    footer = pill?.let { (label, tone) -> { pt.tiago.zerodroid.ui.kit.StatusPill(label, tone) } },
                 )
             }
             if (m.core.isNotEmpty() || m.channels.isNotEmpty()) {
