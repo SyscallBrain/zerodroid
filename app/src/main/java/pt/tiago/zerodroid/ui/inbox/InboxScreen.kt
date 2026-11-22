@@ -36,6 +36,7 @@ import pt.tiago.zerodroid.ui.kit.SectionHeader
 import pt.tiago.zerodroid.ui.kit.Skeleton
 import pt.tiago.zerodroid.ui.kit.Tone
 import pt.tiago.zerodroid.ui.kit.ZcCard
+import pt.tiago.zerodroid.ui.kit.clickableNoRipple
 import pt.tiago.zerodroid.ui.kit.ZcDangerButton
 import pt.tiago.zerodroid.ui.kit.ZcPrimaryButton
 import pt.tiago.zerodroid.ui.kit.ZcTopBar
@@ -49,7 +50,14 @@ import java.time.format.DateTimeFormatter
 private val HM = DateTimeFormatter.ofPattern("HH:mm")
 
 @Composable
-fun InboxScreen(viewModel: InboxViewModel, active: Boolean = true, onOpenChat: (String, String) -> Unit, modifier: Modifier = Modifier) {
+fun InboxScreen(
+    viewModel: InboxViewModel,
+    active: Boolean = true,
+    onOpenChat: (String, String) -> Unit,
+    modifier: Modifier = Modifier,
+    /** Opens the live run of a SOP gate: (workflow name, run id). */
+    onOpenRun: (String, String) -> Unit = { _, _ -> },
+) {
     val pending by viewModel.pending.collectAsStateWithLifecycle()
     val recent by viewModel.recent.collectAsStateWithLifecycle()
     val m by viewModel.model.collectAsStateWithLifecycle()
@@ -104,7 +112,7 @@ fun InboxScreen(viewModel: InboxViewModel, active: Boolean = true, onOpenChat: (
                 is SopGatesResult.Ok -> if (g.gates.isNotEmpty()) {
                     item("gates-h") { SectionHeader("SOP decisions · ${g.gates.size}") }
                     items(g.gates, key = { "g-" + it.runId }) { gate ->
-                        GateCard(gate, deciding = gate.runId in m.deciding, onDecide = { viewModel.decideGate(gate, it) }, modifier = Modifier.animateItem())
+                        GateCard(gate, deciding = gate.runId in m.deciding, onDecide = { viewModel.decideGate(gate, it) }, onOpen = { onOpenRun(gate.sopName, gate.runId) }, modifier = Modifier.animateItem())
                     }
                 }
                 SopGatesResult.Forbidden -> item("gates-forbidden") {
@@ -139,9 +147,12 @@ fun InboxScreen(viewModel: InboxViewModel, active: Boolean = true, onOpenChat: (
 }
 
 @Composable
-private fun GateCard(gate: SopGate, deciding: Boolean, onDecide: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+private fun GateCard(gate: SopGate, deciding: Boolean, onDecide: (Boolean) -> Unit, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     ZcCard(modifier.fillMaxWidth(), border = ZcTokens.attention.copy(alpha = 0.25f)) {
-        Text(gate.sopName, style = ZcType.bodyStrong)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(gate.sopName, style = ZcType.bodyStrong, modifier = Modifier.weight(1f))
+            Text("Open run", style = ZcType.caption.copy(color = ZcTokens.accentStart), modifier = Modifier.clickableNoRipple(onOpen))
+        }
         Text(
             listOfNotNull(if (gate.checkpoint) "Checkpoint" else "Approval gate", gate.stepLabel).joinToString(" · "),
             style = ZcType.caption.copy(color = ZcTokens.attention),

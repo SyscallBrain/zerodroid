@@ -72,8 +72,12 @@ fun HomeScreen(
     onOpenInbox: () -> Unit,
     onBrandLongPress: () -> Unit,
     onOpenAgent: (String) -> Unit = {},
+    onOpenWorkflows: () -> Unit = {},
+    /** SOP runs waiting for a decision: tints the Workflows tile. */
+    workflowsWaiting: Int = 0,
     modifier: Modifier = Modifier,
 ) {
+    val workflows by viewModel.workflows.collectAsStateWithLifecycle()
     val m by viewModel.model.collectAsStateWithLifecycle()
     pt.tiago.zerodroid.RecomposeProbe("HomeScreen")
     pt.tiago.zerodroid.Perf.mark("home.firstComposition")
@@ -162,6 +166,18 @@ fun HomeScreen(
                     },
                     c = { ZcTile("Uptime", m.uptimeText, stale = m.stale, loading = loading, modifier = it) },
                     d = { ZcTile("Sessions", m.activeSessions?.toString(), suffix = "active", stale = m.stale, loading = loading, modifier = it) },
+                )
+            }
+            item("workflows") {
+                ZcTile(
+                    "Workflows",
+                    workflows?.toString(),
+                    suffix = "saved",
+                    caption = if (workflowsWaiting > 0) "$workflowsWaiting waiting for you" else "Step-by-step procedures",
+                    loading = !m.loaded,
+                    onClick = onOpenWorkflows,
+                    modifier = Modifier.fillMaxWidth(),
+                    footer = if (workflowsWaiting > 0) { { pt.tiago.zerodroid.ui.kit.StatusPill("Needs approval", Tone.Attention) } } else null,
                 )
             }
             if (m.core.isNotEmpty() || m.channels.isNotEmpty()) {

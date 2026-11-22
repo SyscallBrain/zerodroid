@@ -96,6 +96,10 @@ class HomeViewModel(
         return if (s !is ConnState.Ready && m.daemonVersion == null) m.copy(daemonVersion = connection.lastServerVersion) else m
     }
 
+    private val _workflows = kotlinx.coroutines.flow.MutableStateFlow<Int?>(null)
+    /** Saved workflows (SOPs) on the daemon, for the Home tile; null until known. */
+    val workflows: kotlinx.coroutines.flow.StateFlow<Int?> = _workflows
+
     fun onVisible() {
         if (poll?.isActive == true) return
         poll = viewModelScope.launch {
@@ -131,6 +135,9 @@ class HomeViewModel(
         if (connection.state.value !is ConnState.Ready) return
         val rpc = connection.rpc
         coroutineScope {
+            launch {
+                (connection.sops.list() as? pt.tiago.zerodroid.data.sop.SopResult.Ok)?.let { _workflows.value = it.value.size }
+            }
             launch {
                 runCatching { rpc.callAs<StatusResult>("status") }.getOrNull()?.let { r ->
                     fetched.update { it.copy(sessions = r.activeSessions) }
