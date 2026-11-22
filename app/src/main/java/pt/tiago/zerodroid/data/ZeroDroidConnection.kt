@@ -75,6 +75,7 @@ object ZeroDroidConnection {
     val chats = ChatSessions(rpc, approvals, scope)
     val sessions = SessionsRepository(rpc)
     val sopGates = SopGates(rpc)
+    val sops = pt.tiago.zerodroid.data.sop.SopRepository(rpc)
     val models = ModelInfo(rpc, pt.tiago.zerodroid.data.config.ConfigRepository(rpc))
     lateinit var config: pt.tiago.zerodroid.data.config.ConfigEditor
         private set
