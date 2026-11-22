@@ -264,7 +264,10 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                     )
                     1 -> ChatsScreen(viewModel<ChatsViewModel>(), active = active, onOpen = openChat)
                     TAB_CODE -> CodeScreen(viewModel<CodeViewModel>(), active = active, onOpen = openChat)
-                    TAB_INBOX -> InboxScreen(inboxVm, active = active, onOpenChat = openChat)
+                    TAB_INBOX -> InboxScreen(
+                        inboxVm, active = active, onOpenChat = openChat,
+                        onOpenRun = { n, id -> sopStack = listOf(pt.tiago.zerodroid.ui.sop.SopRoute.Run(n, id)) },
+                    )
                     else -> pt.tiago.zerodroid.ui.config.ConfigTab(debug, active = active, jump = configJump, onJumpConsumed = { configJump = null })
                 }
             }

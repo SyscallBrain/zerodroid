@@ -104,6 +104,7 @@ fun SopEditorScreen(
     var deleteAsk by remember { mutableStateOf<Int?>(null) } // step number, or 0 for the workflow
     var duplicateAsk by remember { mutableStateOf(false) }
     var legend by remember { mutableStateOf(false) }
+    var runAsk by remember { mutableStateOf(false) }
     var overflow by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf<Menu?>(null) }
     val draft = s.draft
@@ -132,6 +133,9 @@ fun SopEditorScreen(
                 },
                 actions = {
                     if (s.canUndo) ZcIconButton(ZcIcons.Undo, "Undo", onClick = vm::undo)
+                    if (!s.isNew && !s.dirty && draft != null && SopDraft.hasManualTrigger(draft)) {
+                        ZcIconButton(ZcIcons.Play, "Run", tint = ZcTokens.success) { runAsk = true }
+                    }
                     ZcPrimaryButton(
                         "Save", compact = true, enabled = (s.dirty || s.isNew) && !s.saving && online,
                         modifier = Modifier.padding(horizontal = 4.dp),
@@ -255,6 +259,7 @@ fun SopEditorScreen(
         }
     }
     if (legend) LegendSheet { legend = false }
+    if (runAsk) RunSheet(name, onDismiss = { runAsk = false }, onStarted = { id -> runAsk = false; onPush(SopRoute.Run(name, id)) }, onEngineOff = { runAsk = false; onEnableEngine() })
 }
 
 @Composable
