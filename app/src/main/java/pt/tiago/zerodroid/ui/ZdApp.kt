@@ -193,6 +193,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
     var sopStack by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.sop.SopStackSaver) { mutableStateOf(emptyList<pt.tiago.zerodroid.ui.sop.SopRoute>()) }
     var canvasRoute by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.canvas.CanvasRouteSaver) { mutableStateOf<pt.tiago.zerodroid.ui.canvas.CanvasRoute?>(null) }
     var automationStack by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.cron.AutomationStackSaver) { mutableStateOf(emptyList<pt.tiago.zerodroid.ui.cron.AutomationRoute>()) }
+    var doctorOpen by rememberSaveable { mutableStateOf(false) }
     var notifRationale by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -230,6 +231,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
     val label = when {
         gallery -> "gallery"
         canvasRoute != null -> "canvas"
+        doctorOpen -> "doctor"
         automationStack.isNotEmpty() -> "automation"
         sopStack.isNotEmpty() -> "workflows"
         agentAlias != null -> "agent"
@@ -267,6 +269,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                         workflowsWaiting = gateCount,
                         onOpenCanvas = { pt.tiago.zerodroid.Perf.navigate("canvas"); canvasRoute = pt.tiago.zerodroid.ui.canvas.CanvasRoute.List },
                         onOpenAutomation = { pt.tiago.zerodroid.Perf.navigate("automation"); automationStack = listOf(pt.tiago.zerodroid.ui.cron.AutomationRoute.List) },
+                        onOpenDoctor = { pt.tiago.zerodroid.Perf.navigate("doctor"); doctorOpen = true },
                     )
                     1 -> ChatsScreen(viewModel<ChatsViewModel>(), active = active, onOpen = openChat)
                     TAB_CODE -> CodeScreen(viewModel<CodeViewModel>(), active = active, onOpen = openChat)
@@ -274,7 +277,10 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                         inboxVm, active = active, onOpenChat = openChat,
                         onOpenRun = { n, id -> sopStack = listOf(pt.tiago.zerodroid.ui.sop.SopRoute.Run(n, id)) },
                     )
-                    else -> pt.tiago.zerodroid.ui.config.ConfigTab(debug, active = active, jump = configJump, onJumpConsumed = { configJump = null })
+                    else -> pt.tiago.zerodroid.ui.config.ConfigTab(
+                        debug, active = active, jump = configJump, onJumpConsumed = { configJump = null },
+                        onOpenDoctor = { pt.tiago.zerodroid.Perf.navigate("doctor"); doctorOpen = true },
+                    )
                 }
             }
             ZcTabBar(
@@ -355,6 +361,22 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
 
     if (automationStack.isNotEmpty()) {
         pt.tiago.zerodroid.ui.cron.AutomationHost(automationStack, onStack = { automationStack = it })
+    }
+
+    if (doctorOpen) {
+        BackHandler { doctorOpen = false }
+        // Opaque, and swallows taps so nothing reaches the screen underneath.
+        Box(Modifier.fillMaxSize().background(ZcTokens.background).pointerInput(Unit) { detectTapGestures { } }) {
+            pt.tiago.zerodroid.ui.doctor.DoctorScreen(
+                onBack = { doctorOpen = false },
+                onFix = { fix ->
+                    doctorOpen = false
+                    chatId = null
+                    tab = TAB_CONFIG
+                    configJump = (fix as? pt.tiago.zerodroid.ui.doctor.DoctorFix.Open)?.route
+                },
+            )
+        }
     }
 
     canvasRoute?.let { route ->
