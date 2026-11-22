@@ -19,4 +19,11 @@ class SignInNotifyPolicyTest {
             assertEquals("$s holding=$holding fg=$fg", expected, signInNotification(s, holding, fg))
         }
     }
+
+    @Test
+    fun expiredStaysPostedAfterAnExpiringNoticeEvenWhenWorkWasDropped() {
+        assertEquals(SignInNotice.Expired, signInNotification(SignInStatus.Expired, holding = false, foreground = false, shown = SignInNotice.Expiring))
+        assertEquals(null, signInNotification(SignInStatus.Expired, holding = false, foreground = false, shown = null))
+        assertEquals(null, signInNotification(SignInStatus.Expired, holding = false, foreground = true, shown = SignInNotice.Expiring))
+    }
 }

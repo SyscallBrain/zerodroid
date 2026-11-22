@@ -239,4 +239,23 @@ class OidcSignInViewModelTest {
         assertTrue(wssFailureHint("Trust anchor for certification path not found.", "h").contains("not signed by the daemon CA"))
         assertEquals("boom", wssFailureHint("boom", "h"))
     }
+
+    @Test
+    fun malformedResponseNeverReachesDiagnosticsOrScreen() = runTest(UnconfinedTestDispatcher()) {
+        val logged = mutableListOf<String>()
+        val http = object : OidcHttp by FakeHttp() {
+            override suspend fun probe(gw: GatewaySpec) = GatewayProbe.Trusted(listOf("corp"))
+            override suspend fun deviceStart(gw: GatewaySpec, alias: String, codeChallenge: String): DeviceStart =
+                throw kotlinx.serialization.SerializationException("Unexpected JSON at input: {\"device_code\":\"secret-dc\"}")
+        }
+        val vm = OidcSignInViewModel(
+            OidcMode.Onboard, OidcLoginClient(http, { "csr" }, { now }, {}, { "v" }), http,
+            { _, _ -> Result.success(Unit) }, { _, _ -> }, { _, _, _ -> }, { null }, {}, diagnose = { logged.add(it) },
+            scope = this, nowSeconds = { now },
+        )
+        vm.submit("h", "corp", null, null)
+        val s = vm.state.value as OidcState.Failed
+        assertFalse(s.message, s.message.contains("secret-dc"))
+        assertTrue(logged.none { it.contains("secret-dc") })
+    }
 }

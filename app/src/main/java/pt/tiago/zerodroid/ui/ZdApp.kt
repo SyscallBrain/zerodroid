@@ -93,6 +93,8 @@ fun ZdApp(
                         val oidcVm: pt.tiago.zerodroid.ui.onboarding.OidcSignInViewModel = viewModel(key = "oidc-onboard") {
                             pt.tiago.zerodroid.ui.onboarding.oidcSignInViewModel(context, pt.tiago.zerodroid.ui.onboarding.OidcMode.Onboard)
                         }
+                        // The view model outlives an unpair: a finished sign-in must not greet the next one.
+                        LaunchedEffect(oidcVm) { if (oidcVm.state.value == pt.tiago.zerodroid.ui.onboarding.OidcState.Done) oidcVm.cancel() }
                         androidx.activity.compose.BackHandler { oidcVm.cancel(); oidc = false }
                         pt.tiago.zerodroid.ui.onboarding.OidcSignInScreen(oidcVm, renew = false, onBack = { oidc = false })
                     } else {

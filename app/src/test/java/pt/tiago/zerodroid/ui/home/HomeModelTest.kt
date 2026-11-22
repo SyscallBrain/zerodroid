@@ -167,4 +167,10 @@ class HomeModelTest {
         assertTrue(m.hint!!, m.hint!!.contains("Sign in again"))
         assertFalse(m.hint!!, m.hint!!.contains("Unpair"))
     }
+
+    @Test
+    fun chatBannerForExpiredSignInSaysSignInAgain() {
+        assertTrue(authFailedBanner(pt.tiago.zerodroid.data.EXPIRED_MESSAGE).contains("Sign in again"))
+        assertTrue(authFailedBanner("refused").contains("Pair again"))
+    }
 }

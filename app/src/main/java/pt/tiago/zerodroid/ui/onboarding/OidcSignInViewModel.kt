@@ -176,7 +176,9 @@ class OidcSignInViewModel(
                 throw e
             } catch (e: Exception) {
                 if (keyUsed) deleteKey()
-                diagnose("oidc sign-in failed: ${e.javaClass.simpleName}: ${e.message}")
+                // Decoding errors quote the response body, which may hold a device code or access token.
+                val detail = if (e is kotlinx.serialization.SerializationException) "" else ": ${e.message}"
+                diagnose("oidc sign-in failed: ${e.javaClass.simpleName}$detail")
                 _state.value = OidcState.Failed(friendly(e, t))
             }
         }
@@ -195,6 +197,7 @@ class OidcSignInViewModel(
             429 -> "Too many attempts. Wait a minute and try again."
             else -> (e.message ?: "The gateway answered HTTP ${e.status}").sentence()
         }
+        is kotlinx.serialization.SerializationException -> "The gateway sent a response ZeroDroid could not read."
         is UnknownHostException, is ConnectException -> "Could not reach the gateway at ${t.gatewayUrl}."
         is SocketTimeoutException -> "The gateway did not answer in time. Check the connection and try again."
         else -> (e.message ?: "Sign-in failed").sentence()

@@ -40,11 +40,19 @@ class OidcLoginClient(
             sleep(wait)
             if (nowSeconds() >= deadline) throw OidcGrantExpired()
             wait = interval
-            when (val outcome = http.devicePoll(gw, alias, grant.start.deviceCode, grant.verifier)) {
+            // A network drop while the user is in the browser is not a refusal: keep polling until the deadline.
+            val outcome = try {
+                http.devicePoll(gw, alias, grant.start.deviceCode, grant.verifier)
+            } catch (_: java.io.IOException) {
+                continue
+            }
+            when (outcome) {
                 PollOutcome.Pending, is PollOutcome.Retry -> Unit
                 PollOutcome.SlowDown -> { interval += 5; wait = interval }
                 is PollOutcome.RateLimited -> wait = outcome.retryAfter ?: (interval * 2)
-                is PollOutcome.Denied -> throw OidcDenied(outcome.message)
+                // The IdP's expired_token reaches us as a 403 denial: it means the code ran out, not a refusal.
+                is PollOutcome.Denied ->
+                    throw if ("expired_token" in outcome.message) OidcGrantExpired() else OidcDenied(outcome.message)
                 is PollOutcome.Granted -> {
                     val now = nowSeconds()
                     return OidcToken(outcome.accessToken, now, outcome.expiresIn?.let { now + it })

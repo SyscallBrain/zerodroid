@@ -95,6 +95,7 @@ object ZeroDroidConnection {
     /** Where the OIDC access token stands; [SignInStatus.NotOidc] for link-paired daemons. */
     val signIn: StateFlow<SignInStatus> = _signIn.asStateFlow()
     private var expiryJob: Job? = null
+    private val gate = SignInGate { System.currentTimeMillis() / 1000 }
 
     private val _renewRequested = MutableStateFlow(false)
     /** The UI should open the OIDC renew sheet (banner, Config → Phone or a notification asked). */
@@ -172,6 +173,7 @@ object ZeroDroidConnection {
     suspend fun onPaired(profile: DaemonProfile, token: String) {
         store.save(profile)
         vault.store(token)
+        gate.onRenewed()
         identity = null
         approvals.clear()
         chats.clear()
@@ -200,9 +202,12 @@ object ZeroDroidConnection {
         }
         store.save(updated)
         vault.store(token.accessToken)
+        gate.onRenewed()
         _phase.value = AppPhase.Paired(updated)
         scheduleExpiry(updated)
-        stopClient()
+        // Quiet swap: the daemon keeps the session (same tui_id), so running turns and pending
+        // approvals are not marked lost; the new connection reloads them on Ready.
+        stopClient(quiet = true)
         ensureStarted()
     }
 
@@ -212,7 +217,7 @@ object ZeroDroidConnection {
         expiryJob = scope.launch {
             while (isActive) {
                 val now = System.currentTimeMillis() / 1000
-                val status = signInStatus(profile, now)
+                val status = gate.status(profile)
                 _signIn.value = status
                 if (status == SignInStatus.Expired) {
                     expire()
@@ -224,9 +229,17 @@ object ZeroDroidConnection {
         }
     }
 
+    /** An AUTH_REQUIRED from [from]: only the current client of an OIDC profile can expire the sign-in. */
+    private fun onRefused(from: RpcClient?) {
+        val profile = (_phase.value as? AppPhase.Paired)?.profile ?: return
+        if (gate.onAuthRequired(profile, fromCurrentClient = from != null && _client.value === from)) expire()
+    }
+
     private fun expire() {
         val profile = (_phase.value as? AppPhase.Paired)?.profile ?: return
         if (!profile.isOidc) return
+        // The clock would otherwise move the banner back to "expires in N min" while the connection is dead.
+        expiryJob?.cancel()
         _signIn.value = SignInStatus.Expired
         stopClient()
         _state.value = ConnState.AuthFailed(EXPIRED_MESSAGE)
@@ -279,7 +292,7 @@ object ZeroDroidConnection {
             startLock.withLock {
                 val profile = (_phase.value as? AppPhase.Paired)?.profile ?: return@withLock
                 if (_client.value != null) return@withLock
-                if (signInStatus(profile, System.currentTimeMillis() / 1000) == SignInStatus.Expired) {
+                if (!gate.canConnect(profile)) {
                     _signIn.value = SignInStatus.Expired
                     _state.value = ConnState.AuthFailed(EXPIRED_MESSAGE)
                     return@withLock
@@ -305,6 +318,7 @@ object ZeroDroidConnection {
     }
 
     private fun buildClient(profile: DaemonProfile, token: String, probe: Boolean = false): RpcClient {
+        var self: RpcClient? = null
         val km = TlsFactory.clientKeyManager(KeystoreIdentity.ALIAS, profile.certPem)
         val tm = TlsFactory.pinnedTrustManager(profile.caPem)
         val ssl = TlsFactory.tls13Context(km, tm)
@@ -334,8 +348,8 @@ object ZeroDroidConnection {
                 }
             },
             authProvider = { profile.authProvider.takeIf { profile.isOidc } },
-            onAuthRequired = { if (!probe && profile.isOidc) scope.launch { expire() } },
-        )
+            onAuthRequired = { if (!probe && profile.isOidc) scope.launch { onRefused(self) } },
+        ).also { self = it }
     }
 
     private fun observe(c: RpcClient, profile: DaemonProfile) {
@@ -384,12 +398,12 @@ object ZeroDroidConnection {
         }.onFailure { log("renew", "certificate renewal skipped: ${it.message}") }
     }
 
-    private fun stopClient() {
+    private fun stopClient(quiet: Boolean = false) {
         stateJob?.cancel()
         notifyJob?.cancel()
         _client.value?.stop()
         _client.value = null
-        if (_state.value is ConnState.Ready) {
+        if (!quiet && _state.value is ConnState.Ready) {
             chats.onConnectionLost()
             approvals.onConnectionLost()
         }
@@ -441,6 +455,7 @@ object ZeroDroidConnection {
 
     private suspend fun forget() {
         expiryJob?.cancel()
+        gate.onRenewed()
         _signIn.value = SignInStatus.NotOidc
         runCatching { store.profiles.first().forEach { store.remove(it.id) } }
         runCatching { vault.clear() }

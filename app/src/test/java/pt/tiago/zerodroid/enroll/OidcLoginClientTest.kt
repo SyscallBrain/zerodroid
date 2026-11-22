@@ -138,4 +138,27 @@ class OidcLoginClientTest {
         assertFalse(OidcToken("secret-at", 1, 2).toString().contains("secret-at"))
         assertFalse(OidcGrant(DeviceStart("dc", "U", "https://i", null, 1), "secret-v", 1).toString().contains("secret-v"))
     }
+
+    @Test
+    fun expiredTokenDenialMeansGrantExpired() {
+        val http = FakeHttp(ArrayDeque(listOf(PollOutcome.Denied("device grant failed: expired_token"))))
+        val c = client(http, Clock())
+        assertThrows(OidcGrantExpired::class.java) { runBlocking { c.awaitToken(gw, "corp", c.start(gw, "corp")) } }
+    }
+
+    @Test
+    fun networkErrorDuringPollRetries() = runBlocking {
+        var failures = 1
+        val http = object : OidcHttp by FakeHttp(ArrayDeque(listOf(PollOutcome.Granted("at", 600)))) {
+            val inner = FakeHttp(ArrayDeque(listOf(PollOutcome.Granted("at", 600))))
+            override suspend fun devicePoll(gw: GatewaySpec, alias: String, deviceCode: String, codeVerifier: String): PollOutcome {
+                if (failures-- > 0) throw java.io.IOException("network down")
+                return inner.devicePoll(gw, alias, deviceCode, codeVerifier)
+            }
+        }
+        val clock = Clock()
+        val c = OidcLoginClient(http, csr = { "csr" }, nowSeconds = { clock.now }, sleep = clock::sleep, newVerifier = { "v" })
+        assertEquals("at", c.awaitToken(gw, "corp", c.start(gw, "corp")).accessToken)
+        assertEquals(listOf(5L, 5L), clock.sleeps)
+    }
 }

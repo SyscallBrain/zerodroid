@@ -133,7 +133,7 @@ fun ChatScreen(
             visible = !ready,
             text = when (conn) {
                 is ConnState.Backoff -> "Reconnecting… messages will send once the daemon is back."
-                is ConnState.AuthFailed -> "The daemon refused this phone. Pair again in Config."
+                is ConnState.AuthFailed -> pt.tiago.zerodroid.ui.home.authFailedBanner((conn as ConnState.AuthFailed).message)
                 else -> "Connecting to the daemon…"
             },
             tone = if (conn is ConnState.Backoff || conn is ConnState.AuthFailed) Tone.Danger else Tone.Live,

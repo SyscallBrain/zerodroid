@@ -38,3 +38,25 @@ fun nextSignInCheck(profile: DaemonProfile, now: Long): Long? {
     val obtainedAt = profile.tokenObtainedAt ?: (expiresAt - SHORT_LIFETIME_S)
     return listOf(warnAt(obtainedAt, expiresAt), expiresAt - EXPIRY_MARGIN_S).firstOrNull { it > now }
 }
+
+/**
+ * The OIDC sign-in as the connection sees it: the token clock, plus a refusal from the daemon
+ * (clock skew, IdP revocation) that holds until the user signs in again.
+ */
+class SignInGate(private val now: () -> Long) {
+    @Volatile private var refused = false
+
+    fun status(profile: DaemonProfile): SignInStatus =
+        if (profile.isOidc && refused) SignInStatus.Expired else signInStatus(profile, now())
+
+    fun canConnect(profile: DaemonProfile): Boolean = status(profile) != SignInStatus.Expired
+
+    /** True when this refusal must expire the sign-in; a late callback from a replaced client is ignored. */
+    fun onAuthRequired(profile: DaemonProfile, fromCurrentClient: Boolean): Boolean {
+        if (!profile.isOidc || !fromCurrentClient) return false
+        refused = true
+        return true
+    }
+
+    fun onRenewed() { refused = false }
+}

@@ -94,7 +94,8 @@ internal fun parsePollResponse(status: Int, body: String, retryAfter: Long?): Po
     }
     403 -> PollOutcome.Denied(errorField(body) ?: "The sign-in was refused.")
     502 -> PollOutcome.Retry(errorField(body) ?: "The gateway could not reach the identity provider.")
-    429 -> PollOutcome.RateLimited(retryAfter)
+    // The gateway's contract: 429 and 503 (with Retry-After) are retryable while the code lives.
+    429, 503 -> PollOutcome.RateLimited(retryAfter)
     else -> throw EnrollHttpException(status, errorField(body) ?: "gateway HTTP $status")
 }
 

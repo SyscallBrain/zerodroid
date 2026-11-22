@@ -53,4 +53,7 @@ class OidcHttpParseTest {
         assertEquals(5L, s.interval)
         assertEquals("U", s.userCode)
     }
+
+    @Test
+    fun serviceUnavailableIsRetryable() = assertEquals(PollOutcome.RateLimited(7), parsePollResponse(503, """{"error":"busy"}""", 7))
 }

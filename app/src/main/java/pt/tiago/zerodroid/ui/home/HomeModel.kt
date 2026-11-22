@@ -72,6 +72,11 @@ data class HomeInputs(
 private val HHMM = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
 private val DAY_HHMM = DateTimeFormatter.ofPattern("EEE HH:mm", Locale.ENGLISH)
 
+/** Banner copy for a refused connection: an expired OIDC sign-in is renewed, anything else means pairing again. */
+fun authFailedBanner(message: String): String =
+    if (message == pt.tiago.zerodroid.data.EXPIRED_MESSAGE) "Your sign-in expired. Sign in again to reconnect."
+    else "The daemon refused this phone. Pair again in Config."
+
 fun isLoopback(host: String) = host == "127.0.0.1" || host == "::1" || host.equals("localhost", ignoreCase = true)
 
 fun formatUptime(seconds: Long): String {

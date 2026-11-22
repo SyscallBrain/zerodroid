@@ -236,8 +236,9 @@ object Notifications {
             var shown: SignInNotice? = null
             kotlinx.coroutines.flow.combine(
                 ZeroDroidConnection.signIn, ZeroDroidConnection.holdForeground, ZeroDroidConnection.foregroundState,
-            ) { status, holding, fg -> signInNotification(status, holding, fg) }
-                .collect { notice ->
+            ) { status, holding, fg -> Triple(status, holding, fg) }
+                .collect { (status, holding, fg) ->
+                    val notice = signInNotification(status, holding, fg, shown)
                     if (notice == null) {
                         if (shown != null) cancelSignIn(app)
                     } else if (notice != shown) {
@@ -251,9 +252,14 @@ object Notifications {
 
 enum class SignInNotice { Expiring, Expired }
 
-internal fun signInNotification(status: SignInStatus, holding: Boolean, foreground: Boolean): SignInNotice? = when {
-    !holding || foreground -> null
+/**
+ * Expiry stops the client, which drops running turns, so `holding` goes false at the very moment the
+ * sign-in expires: once an Expiring notice was shown, the Expired one is posted regardless.
+ */
+internal fun signInNotification(status: SignInStatus, holding: Boolean, foreground: Boolean, shown: SignInNotice? = null): SignInNotice? = when {
+    foreground -> null
+    status == SignInStatus.Expired && (holding || shown != null) -> SignInNotice.Expired
+    !holding -> null
     status is SignInStatus.Expiring -> SignInNotice.Expiring
-    status == SignInStatus.Expired -> SignInNotice.Expired
     else -> null
 }
