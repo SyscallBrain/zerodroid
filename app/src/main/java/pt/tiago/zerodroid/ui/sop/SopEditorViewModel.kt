@@ -89,7 +89,7 @@ class SopEditorViewModel(
 
     private suspend fun load(name: String?) {
         if (name == null) {
-            val d = SopDraft.blank("")
+            val d = SopDraft.blank("").let { b -> repo.defaultAgent()?.let { SopDraft.set(b, "agent", JsonPrimitive(it)) } ?: b }
             _state.update { it.copy(loading = false, draft = d) }
             refreshGraph(d, version)
         } else {

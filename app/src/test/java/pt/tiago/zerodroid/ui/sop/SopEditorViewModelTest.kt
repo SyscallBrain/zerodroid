@@ -242,6 +242,22 @@ class SopEditorViewModelTest {
     }
 
     @Test
+    fun newSopDefaultsToFirstEnabledAgent() = runTest {
+        // agents/list order from the fixture: skydroid (enabled), coder (disabled).
+        val c = rpc().apply {
+            on("agents/list", """{"agents":[{"alias":"coder","enabled":false,"channels":[]},{"alias":"skydroid","enabled":true,"channels":[]},{"alias":"architect","enabled":true,"channels":[]}]}""")
+        }
+        val v = vm(c, name = null)
+        assertEquals("skydroid", v.state.value.draft!!["agent"]!!.jsonPrimitive.content)
+        assertFalse(v.state.value.canUndo)
+    }
+
+    @Test
+    fun existingSopKeepsItsAgent() = runTest {
+        assertNull(vm(rpc()).state.value.draft!!["agent"])
+    }
+
+    @Test
     fun loadsAgentAliases() = runTest {
         assertEquals(listOf("coder", "skydroid"), vm(rpc()).state.value.agents)
     }

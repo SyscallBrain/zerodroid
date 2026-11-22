@@ -90,6 +90,14 @@ class SopRepository(private val rpc: RpcCaller) {
         decode<pt.tiago.zerodroid.rpc.proto.AgentsListResult>(it).agents.map { a -> a.alias }.sorted()
     }
 
+    /**
+     * The agent a new workflow starts with: the first enabled one in the daemon's order. A workflow
+     * with no agent can't be started from the app (the daemon refuses dashboard runs without one).
+     */
+    suspend fun defaultAgent(): String? = (call("agents/list", null, saving = false) {
+        decode<pt.tiago.zerodroid.rpc.proto.AgentsListResult>(it).agents.firstOrNull { a -> a.enabled }?.alias
+    } as? SopResult.Ok)?.value
+
     suspend fun triggerSources(): SopResult<TriggerSourceRegistryDto> = call("sops/trigger-sources", null) { decode(it) }
 
     /** Starts a manual run; returns the run id. */
