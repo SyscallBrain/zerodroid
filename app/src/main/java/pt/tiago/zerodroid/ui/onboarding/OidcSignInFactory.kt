@@ -25,3 +25,11 @@ fun oidcSignInViewModel(context: Context, mode: OidcMode): OidcSignInViewModel {
         diagnose = { CrashLog.record(app, "oidc", it) },
     )
 }
+
+/**
+ * ViewModelStore key for a renew sheet. Renew view models capture their profile, and the store
+ * outlives an unpair: keying on the sign-in (device, gateway, token time) keeps a new sign-in from
+ * reusing one that would renew against the previous gateway.
+ */
+fun renewViewModelKey(profile: pt.tiago.zerodroid.data.DaemonProfile, generation: Int): String =
+    "oidc-renew-${profile.deviceId}-${profile.gatewayUrl}-${profile.tokenObtainedAt}-$generation"

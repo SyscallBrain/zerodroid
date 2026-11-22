@@ -139,7 +139,7 @@ private fun PairedShell(profile: pt.tiago.zerodroid.data.DaemonProfile, debug: B
             val context = LocalContext.current
             // A fresh view model per opening: a previous grant's state never leaks into the next one.
             var generation by rememberSaveable { mutableIntStateOf(0) }
-            val vm: pt.tiago.zerodroid.ui.onboarding.OidcSignInViewModel = viewModel(key = "oidc-renew-$generation") {
+            val vm: pt.tiago.zerodroid.ui.onboarding.OidcSignInViewModel = viewModel(key = pt.tiago.zerodroid.ui.onboarding.renewViewModelKey(profile, generation)) {
                 pt.tiago.zerodroid.ui.onboarding.oidcSignInViewModel(context, pt.tiago.zerodroid.ui.onboarding.OidcMode.Renew(profile))
             }
             val close = { vm.cancel(); generation++; ZeroDroidConnection.renewHandled() }
