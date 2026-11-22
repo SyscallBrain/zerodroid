@@ -72,6 +72,10 @@ data class HomeInputs(
 private val HHMM = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
 private val DAY_HHMM = DateTimeFormatter.ofPattern("EEE HH:mm", Locale.ENGLISH)
 
+/** The chat's own connection banner; an expired sign-in is already announced by the app-wide banner. */
+fun chatConnectionBannerVisible(conn: ConnState): Boolean =
+    conn !is ConnState.Ready && !(conn is ConnState.AuthFailed && conn.message == pt.tiago.zerodroid.data.EXPIRED_MESSAGE)
+
 /** Banner copy for a refused connection: an expired OIDC sign-in is renewed, anything else means pairing again. */
 fun authFailedBanner(message: String): String =
     if (message == pt.tiago.zerodroid.data.EXPIRED_MESSAGE) "Your sign-in expired. Sign in again to reconnect."

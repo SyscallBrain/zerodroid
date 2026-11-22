@@ -173,4 +173,12 @@ class HomeModelTest {
         assertTrue(authFailedBanner(pt.tiago.zerodroid.data.EXPIRED_MESSAGE).contains("Sign in again"))
         assertTrue(authFailedBanner("refused").contains("Pair again"))
     }
+
+    @Test
+    fun chatBannerStepsAsideForTheGlobalSignInBanner() {
+        assertFalse(chatConnectionBannerVisible(ConnState.AuthFailed(pt.tiago.zerodroid.data.EXPIRED_MESSAGE)))
+        assertTrue(chatConnectionBannerVisible(ConnState.AuthFailed("refused")))
+        assertTrue(chatConnectionBannerVisible(ConnState.Backoff(1000, "x")))
+        assertFalse(chatConnectionBannerVisible(ConnState.Ready(pt.tiago.zerodroid.rpc.proto.InitializeResult(1, "0.9.0", 1))))
+    }
 }

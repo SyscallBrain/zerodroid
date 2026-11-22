@@ -130,7 +130,7 @@ fun ChatScreen(
         )
         HorizontalDivider(color = ZcTokens.hairline)
         ConnectionBanner(
-            visible = !ready,
+            visible = pt.tiago.zerodroid.ui.home.chatConnectionBannerVisible(conn),
             text = when (conn) {
                 is ConnState.Backoff -> "Reconnecting… messages will send once the daemon is back."
                 is ConnState.AuthFailed -> pt.tiago.zerodroid.ui.home.authFailedBanner((conn as ConnState.AuthFailed).message)
