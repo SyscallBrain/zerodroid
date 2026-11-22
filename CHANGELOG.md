@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-22
+
 ### Added
 
 - A notification when an agent finishes a turn started on this phone while
@@ -18,6 +20,8 @@ All notable changes to this project are documented here. The format follows
 
 - An undismissable "Waiting for your approval…" notification could stay
   behind after a turn ended, with nothing to approve.
+- Tall bottom sheets, such as the Code session menu, bounced on their own
+  when dragged near the top of the screen.
 
 ## [0.4.1] - 2026-11-21
 
@@ -45,5 +49,6 @@ First public release.
 - Release APKs built, signed and published by GitHub Actions, with
   `SHA256SUMS` and signed build provenance.
 
-[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/SyscallBrain/zerodroid/releases/tag/v0.4.1
