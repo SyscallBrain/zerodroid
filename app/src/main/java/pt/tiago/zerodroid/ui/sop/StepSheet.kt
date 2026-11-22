@@ -41,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -309,6 +311,9 @@ private fun Advanced(vm: SopEditorViewModel, s: EditorState, step: JsonObject, n
 @Composable
 private fun InstructionsEditor(initial: String, otherSteps: List<Int>, onDone: () -> Unit, onChange: (String) -> Unit) {
     var value by remember { mutableStateOf(TextFieldValue(initial, TextRange(initial.length))) }
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     Dialog(onDone, DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Column(Modifier.fillMaxSize().background(ZcTokens.background).windowInsetsPadding(WindowInsets.statusBars).imePadding()) {
             ZcTopBar("Instructions", navigation = { ZcIconButton(ZcIcons.Back, "Back", onClick = onDone) }, actions = {
@@ -322,10 +327,15 @@ private fun InstructionsEditor(initial: String, otherSteps: List<Int>, onDone: (
                             "step $k",
                             style = ZcType.caption.copy(color = ZcTokens.accentEnd),
                             modifier = Modifier.clip(RoundedCornerShape(ZcTokens.chipRadius)).background(ZcTokens.accentEnd.copy(alpha = 0.12f)).clickable {
+                                // Finish the keyboard's half-typed word first: otherwise the IME re-applies its
+                                // composing text over the insert and splits the tag ("{{ste{{steps.10}}ps.3}}").
+                                val at = value.selection
+                                focusManager.clearFocus()
                                 val tag = "{{steps.$k}}"
-                                val t = value.text.replaceRange(value.selection.min, value.selection.max, tag)
-                                value = TextFieldValue(t, TextRange(value.selection.min + tag.length))
+                                val t = value.text.replaceRange(at.min, at.max, tag)
+                                value = TextFieldValue(t, TextRange(at.min + tag.length), composition = null)
                                 onChange(t)
+                                scope.launch { kotlinx.coroutines.delay(50); runCatching { focus.requestFocus() } }
                             }.padding(horizontal = 10.dp, vertical = 7.dp),
                         )
                     }
@@ -335,7 +345,7 @@ private fun InstructionsEditor(initial: String, otherSteps: List<Int>, onDone: (
                 value, { value = it; onChange(it.text) },
                 textStyle = ZcType.body,
                 cursorBrush = SolidColor(ZcTokens.accentStart),
-                modifier = Modifier.fillMaxSize().padding(ZcTokens.gutter),
+                modifier = Modifier.fillMaxSize().padding(ZcTokens.gutter).focusRequester(focus),
             )
         }
     }

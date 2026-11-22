@@ -45,13 +45,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -292,12 +291,14 @@ private fun DrawScope.drawWire(
 ) {
     val role = wireRole(w)
     val color = roleColor(role).let { it.copy(alpha = it.alpha * dim) }
-    val stroke = when (role) {
-        WireRole.Data -> Stroke(1.2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 4.dp.toPx())))
-        WireRole.Dependency, WireRole.Failure, WireRole.Trigger ->
-            Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())))
-        else -> Stroke(2.dp.toPx())
+    // Dashes are cut into the path here (only when the graph re-records), not by a per-frame PathEffect.
+    val stroke = Stroke(if (role == WireRole.Data) 1.2.dp.toPx() else 2.dp.toPx())
+    val dash: Pair<Float, Float>? = when (role) {
+        WireRole.Data -> 2.dp.toPx() to 4.dp.toPx()
+        WireRole.Dependency, WireRole.Failure, WireRole.Trigger -> 6.dp.toPx() to 5.dp.toPx()
+        else -> null
     }
+    fun line(p: Path) = if (dash == null) p else dashedCopy(p, dash.first, dash.second, closed = false)
     // Spread the start points so wires leaving one card don't overlap.
     val sx = when (role) {
         WireRole.Switch -> {
@@ -325,7 +326,7 @@ private fun DrawScope.drawWire(
         val my = (start.y + end.y) / 2
         path.moveTo(start.x, start.y)
         path.cubicTo(start.x, my, end.x, my, end.x, end.y)
-        drawPath(path, color, style = stroke)
+        drawPath(line(path), color, style = stroke)
         if (role != WireRole.Data) arrow(end, down = true, color)
     } else {
         // Back edge (loop or retry): out the right side, along the canvas edge, back in on the right.
@@ -336,7 +337,7 @@ private fun DrawScope.drawWire(
         path.moveTo(a.right, sy)
         path.cubicTo(edge, sy, edge, sy, edge, (sy + ty) / 2)
         path.cubicTo(edge, ty, edge, ty, end.x, end.y)
-        drawPath(path, color, style = stroke)
+        drawPath(line(path), color, style = stroke)
         arrow(end, down = false, color)
     }
     if (role == WireRole.Switch && !label.isNullOrBlank()) {
@@ -362,13 +363,31 @@ private fun DrawScope.arrow(tip: Offset, down: Boolean, color: Color) {
     drawPath(p, color, style = Stroke(2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
 }
 
-/** A dashed rounded outline, for things not wired yet. */
-fun Modifier.dashed(color: Color, radius: Dp): Modifier = drawBehind {
-    val r = radius.toPx()
-    drawRoundRect(
-        color, cornerRadius = CornerRadius(r),
-        style = Stroke(1.2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx()))),
-    )
+/**
+ * A dashed rounded outline, for things not wired yet. The dashes are cut out of the outline once
+ * per size (drawWithCache + PathMeasure) and drawn as a plain path: a DashPathEffect is re-applied
+ * on every frame by the renderer, and with ~40 chips on a large graph that stalled frames.
+ */
+fun Modifier.dashed(color: Color, radius: Dp): Modifier = drawWithCache {
+    val w = 1.2.dp.toPx()
+    val outline = Path().apply {
+        addRoundRect(androidx.compose.ui.geometry.RoundRect(w / 2, w / 2, size.width - w / 2, size.height - w / 2, CornerRadius(radius.toPx())))
+    }
+    val dashes = dashedCopy(outline, on = 5.dp.toPx(), off = 4.dp.toPx())
+    val stroke = Stroke(w)
+    onDrawBehind { drawPath(dashes, color, style = stroke) }
+}
+
+/** [src] as a path of dash segments (no path effect needed at draw time). */
+private fun dashedCopy(src: Path, on: Float, off: Float, closed: Boolean = true): Path {
+    val m = androidx.compose.ui.graphics.PathMeasure().apply { setPath(src, forceClosed = closed) }
+    val out = Path()
+    var d = 0f
+    while (d < m.length) {
+        m.getSegment(d, minOf(d + on, m.length), out, startWithMoveTo = true)
+        d += on + off
+    }
+    return out
 }
 
 @Composable
@@ -432,7 +451,8 @@ private fun StepCard(
     val bg = if (runState == "waiting") ZcTokens.attention.copy(alpha = 0.06f) else ZcTokens.surface
     Column(
         Modifier
-            .then(if (isTarget) Modifier.shadow(14.dp, CardShape, ambientColor = ZcTokens.accentStart, spotColor = ZcTokens.accentStart) else Modifier)
+            // Soft outer ring instead of an elevation shadow: shadows on every target card were costly to draw.
+            .then(if (isTarget) Modifier.border(4.dp, ZcTokens.accentStart.copy(alpha = 0.12f), CardShape).padding(2.dp) else Modifier)
             .clip(CardShape)
             .background(bg)
             .border(if (isSource || isTarget || runState == "active" || runState == "waiting") 1.5.dp else 1.dp, border, CardShape)
