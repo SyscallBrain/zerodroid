@@ -13,7 +13,7 @@ class SignInGateTest {
     @Test
     fun daemonRefusalHoldsExpiredDespiteTheClock() {
         val gate = SignInGate { now }
-        assertTrue(gate.onAuthRequired(oidc, fromCurrentClient = true))
+        assertEquals(AuthAction.Expire, gate.onAuthRequired(oidc, fromCurrentClient = true, atInitialize = true))
         now = 3400 // the clock alone would say Expiring
         assertEquals(SignInStatus.Expired, gate.status(oidc))
         assertFalse(gate.canConnect(oidc))
@@ -22,7 +22,7 @@ class SignInGateTest {
     @Test
     fun renewClearsTheRefusal() {
         val gate = SignInGate { now }
-        gate.onAuthRequired(oidc, fromCurrentClient = true)
+        gate.onAuthRequired(oidc, fromCurrentClient = true, atInitialize = true)
         gate.onRenewed()
         assertEquals(SignInStatus.Fresh, gate.status(oidc))
         assertTrue(gate.canConnect(oidc))
@@ -31,14 +31,14 @@ class SignInGateTest {
     @Test
     fun staleClientRefusalIsIgnored() {
         val gate = SignInGate { now }
-        assertFalse(gate.onAuthRequired(oidc, fromCurrentClient = false))
+        assertEquals(AuthAction.Ignore, gate.onAuthRequired(oidc, fromCurrentClient = false, atInitialize = false))
         assertTrue(gate.canConnect(oidc))
     }
 
     @Test
     fun nativeProfilesAreNeverGated() {
         val gate = SignInGate { now }
-        assertFalse(gate.onAuthRequired(native, fromCurrentClient = true))
+        assertEquals(AuthAction.Ignore, gate.onAuthRequired(native, fromCurrentClient = true, atInitialize = true))
         assertTrue(gate.canConnect(native))
         assertEquals(SignInStatus.NotOidc, gate.status(native))
     }
@@ -47,5 +47,33 @@ class SignInGateTest {
     fun clockExpiryBlocksConnecting() {
         now = 3580
         assertFalse(SignInGate { now }.canConnect(oidc))
+    }
+
+    @Test
+    fun revalidationDueOnARequestReinitializesInsteadOfExpiring() {
+        // Introspection mode: the daemon asks for a fresh initialize every revalidation_secs (60 s default).
+        val gate = SignInGate { now }
+        now = 100
+        assertEquals(AuthAction.Reinitialize, gate.onAuthRequired(oidc, fromCurrentClient = true, atInitialize = false))
+        assertTrue(gate.canConnect(oidc))
+        now = 170
+        assertEquals(AuthAction.Reinitialize, gate.onAuthRequired(oidc, fromCurrentClient = true, atInitialize = false))
+    }
+
+    @Test
+    fun repeatedRefusalRightAfterReinitializeExpires() {
+        val gate = SignInGate { now }
+        now = 100
+        gate.onAuthRequired(oidc, fromCurrentClient = true, atInitialize = false)
+        now = 103
+        assertEquals(AuthAction.Expire, gate.onAuthRequired(oidc, fromCurrentClient = true, atInitialize = false))
+        assertFalse(gate.canConnect(oidc))
+    }
+
+    @Test
+    fun requestRefusalAfterTheClockExpiryExpires() {
+        val gate = SignInGate { now }
+        now = 3590
+        assertEquals(AuthAction.Expire, gate.onAuthRequired(oidc, fromCurrentClient = true, atInitialize = false))
     }
 }

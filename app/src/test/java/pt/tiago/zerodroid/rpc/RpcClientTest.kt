@@ -137,8 +137,8 @@ class RpcClientTest {
     @Test
     fun authRequiredOnLaterRequestFiresCallback() = runTest(UnconfinedTestDispatcher()) {
         val transport = FakeTransport()
-        val seen = mutableListOf<String>()
-        val client = RpcClient(transport, "wss://x/", { "tok" }, this, onAuthRequired = { seen.add(it) })
+        val seen = mutableListOf<Pair<String, Boolean>>()
+        val client = RpcClient(transport, "wss://x/", { "tok" }, this, onAuthRequired = { m, atInit -> seen.add(m to atInit) })
         client.start()
         val initId = ZdJson.parseToJsonElement(transport.sent.first()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
         transport.listener!!.onText(initReply(initId))
@@ -147,7 +147,7 @@ class RpcClientTest {
         val reqId = ZdJson.parseToJsonElement(transport.sent.last()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
         transport.error(reqId, -32010, "token expired")
         advanceTimeBy(1)
-        assertEquals(listOf("token expired"), seen)
+        assertEquals(listOf("token expired" to false), seen)
         assertTrue(thrown is RpcException)
         client.stop()
     }
@@ -156,7 +156,7 @@ class RpcClientTest {
     fun otherRequestErrorsDoNotFireAuthCallback() = runTest(UnconfinedTestDispatcher()) {
         val transport = FakeTransport()
         val seen = mutableListOf<String>()
-        val client = RpcClient(transport, "wss://x/", { "tok" }, this, onAuthRequired = { seen.add(it) })
+        val client = RpcClient(transport, "wss://x/", { "tok" }, this, onAuthRequired = { m, _ -> seen.add(m) })
         client.start()
         val initId = ZdJson.parseToJsonElement(transport.sent.first()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
         transport.listener!!.onText(initReply(initId))
@@ -165,6 +165,18 @@ class RpcClientTest {
         transport.error(reqId, -32012, "forbidden")
         advanceTimeBy(1)
         assertTrue(seen.isEmpty())
+        client.stop()
+    }
+
+    @Test
+    fun authRequiredAtInitializeIsFlagged() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val seen = mutableListOf<Pair<String, Boolean>>()
+        val client = RpcClient(transport, "wss://x/", { "tok" }, this, onAuthRequired = { m, atInit -> seen.add(m to atInit) })
+        client.start()
+        val id = ZdJson.parseToJsonElement(transport.sent.first()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
+        transport.error(id, -32010, "Credential expired")
+        assertEquals(listOf("Credential expired" to true), seen)
         client.stop()
     }
 }

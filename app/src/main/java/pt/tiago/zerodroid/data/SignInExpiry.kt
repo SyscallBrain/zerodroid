@@ -43,20 +43,40 @@ fun nextSignInCheck(profile: DaemonProfile, now: Long): Long? {
  * The OIDC sign-in as the connection sees it: the token clock, plus a refusal from the daemon
  * (clock skew, IdP revocation) that holds until the user signs in again.
  */
+enum class AuthAction { Ignore, Reinitialize, Expire }
+
+private const val REINIT_GUARD_S = 10L
+
 class SignInGate(private val now: () -> Long) {
     @Volatile private var refused = false
+    @Volatile private var lastReinit: Long? = null
 
     fun status(profile: DaemonProfile): SignInStatus =
         if (profile.isOidc && refused) SignInStatus.Expired else signInStatus(profile, now())
 
     fun canConnect(profile: DaemonProfile): Boolean = status(profile) != SignInStatus.Expired
 
-    /** True when this refusal must expire the sign-in; a late callback from a replaced client is ignored. */
-    fun onAuthRequired(profile: DaemonProfile, fromCurrentClient: Boolean): Boolean {
-        if (!profile.isOidc || !fromCurrentClient) return false
+    /**
+     * What an AUTH_REQUIRED means. A refused `initialize` ends the sign-in. A refused request while the
+     * token is still good is the daemon's periodic revalidation (introspection mode re-checks every
+     * `revalidation_secs`, 60 s by default, and asks the client to re-initialize): reconnect with the
+     * same token. A second refusal right after such a reconnect ends the sign-in, so this cannot loop.
+     * A late callback from a replaced client is ignored.
+     */
+    fun onAuthRequired(profile: DaemonProfile, fromCurrentClient: Boolean, atInitialize: Boolean): AuthAction {
+        if (!profile.isOidc || !fromCurrentClient) return AuthAction.Ignore
+        val t = now()
+        val recent = lastReinit?.let { t - it < REINIT_GUARD_S } == true
+        if (!atInitialize && !recent && signInStatus(profile, t) != SignInStatus.Expired) {
+            lastReinit = t
+            return AuthAction.Reinitialize
+        }
         refused = true
-        return true
+        return AuthAction.Expire
     }
 
-    fun onRenewed() { refused = false }
+    fun onRenewed() {
+        refused = false
+        lastReinit = null
+    }
 }

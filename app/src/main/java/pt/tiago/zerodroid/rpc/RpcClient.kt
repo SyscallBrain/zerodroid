@@ -79,7 +79,8 @@ open class RpcClient(
     private val backoff: Backoff = Backoff(),
     private val authProvider: () -> String? = { null },
     /** Fires with the daemon's message whenever any response carries AUTH_REQUIRED, including `initialize`. */
-    private val onAuthRequired: (String) -> Unit = {},
+    /** `atInitialize` tells a refused handshake apart from a refused request on an open connection. */
+    private val onAuthRequired: (message: String, atInitialize: Boolean) -> Unit = { _, _ -> },
 ) {
     private val _state = MutableStateFlow<ConnState>(ConnState.Idle)
     val state: StateFlow<ConnState> = _state.asStateFlow()
@@ -192,9 +193,10 @@ open class RpcClient(
                 pending.remove(inbound.id)?.complete(inbound.result)
             }
             is Inbound.Failure -> {
+                val atInitialize = inbound.id == initId
                 // Settle the request first: the callback may stop this client.
                 onFailure(gen, inbound)
-                if (inbound.error.code == RpcCodes.AUTH_REQUIRED) onAuthRequired(inbound.error.message)
+                if (inbound.error.code == RpcCodes.AUTH_REQUIRED) onAuthRequired(inbound.error.message, atInitialize)
             }
         }
     }

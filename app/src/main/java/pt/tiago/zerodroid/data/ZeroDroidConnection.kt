@@ -230,9 +230,18 @@ object ZeroDroidConnection {
     }
 
     /** An AUTH_REQUIRED from [from]: only the current client of an OIDC profile can expire the sign-in. */
-    private fun onRefused(from: RpcClient?) {
+    private fun onRefused(from: RpcClient?, atInitialize: Boolean) {
         val profile = (_phase.value as? AppPhase.Paired)?.profile ?: return
-        if (gate.onAuthRequired(profile, fromCurrentClient = from != null && _client.value === from)) expire()
+        when (gate.onAuthRequired(profile, fromCurrentClient = from != null && _client.value === from, atInitialize = atInitialize)) {
+            AuthAction.Ignore -> Unit
+            AuthAction.Expire -> expire()
+            AuthAction.Reinitialize -> {
+                log("conn", "daemon asked to revalidate the OIDC sign-in; reconnecting with the same token")
+                // Same quiet swap as a renew: the session survives, nothing is marked lost.
+                stopClient(quiet = true)
+                ensureStarted()
+            }
+        }
     }
 
     private fun expire() {
@@ -348,7 +357,7 @@ object ZeroDroidConnection {
                 }
             },
             authProvider = { profile.authProvider.takeIf { profile.isOidc } },
-            onAuthRequired = { if (!probe && profile.isOidc) scope.launch { onRefused(self) } },
+            onAuthRequired = { _, atInitialize -> if (!probe && profile.isOidc) scope.launch { onRefused(self, atInitialize) } },
         ).also { self = it }
     }
 
