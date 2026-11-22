@@ -68,6 +68,7 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
     val unreachable by ZeroDroidConnection.simulateUnreachable.collectAsStateWithLifecycle()
     val showWorkflows by ZeroDroidConnection.screen.showWorkflowsTile.collectAsStateWithLifecycle()
     val showCanvas by ZeroDroidConnection.screen.showCanvasTile.collectAsStateWithLifecycle()
+    val showAutomation by ZeroDroidConnection.screen.showAutomationTile.collectAsStateWithLifecycle()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val profile = (phase as? AppPhase.Paired)?.profile
     var confirmUnpair by remember { mutableStateOf(false) }
@@ -147,6 +148,18 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
                         Text("Off hides it from Home. Canvases are still saved.", style = ZcType.caption)
                     }
                     ZcSwitch(showCanvas, toggleCanvas)
+                }
+                Divider()
+                val toggleAutomation = { on: Boolean -> scope.launch { ZeroDroidConnection.screen.setShowAutomationTile(on) }; Unit }
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { toggleAutomation(!showAutomation) },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Show Automation card", style = ZcType.body)
+                        Text("Off hides it from Home. Jobs keep running.", style = ZcType.caption)
+                    }
+                    ZcSwitch(showAutomation, toggleAutomation)
                 }
             }
 

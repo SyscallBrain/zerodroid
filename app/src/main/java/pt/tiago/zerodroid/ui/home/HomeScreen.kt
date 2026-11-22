@@ -82,6 +82,7 @@ fun HomeScreen(
     val workflows by viewModel.workflows.collectAsStateWithLifecycle()
     val showWorkflows by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showWorkflowsTile.collectAsStateWithLifecycle()
     val showCanvas by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showCanvasTile.collectAsStateWithLifecycle()
+    val showAutomation by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showAutomationTile.collectAsStateWithLifecycle()
     val m by viewModel.model.collectAsStateWithLifecycle()
     pt.tiago.zerodroid.RecomposeProbe("HomeScreen")
     pt.tiago.zerodroid.Perf.mark("home.firstComposition")
@@ -194,6 +195,19 @@ fun HomeScreen(
                     caption = "Charts and pages agents drew",
                     onClick = onOpenCanvas,
                     modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (showAutomation) item("automation") {
+                val failing = m.automationFailing
+                ZcTile(
+                    "Automation",
+                    m.automationJobs?.toString(),
+                    suffix = "jobs",
+                    caption = if (failing > 0) "$failing failed last run" else "Scheduled jobs",
+                    loading = !m.loaded,
+                    onClick = onOpenAutomation,
+                    modifier = Modifier.fillMaxWidth(),
+                    footer = if (failing > 0) { { pt.tiago.zerodroid.ui.kit.StatusPill("Failed", Tone.Danger) } } else null,
                 )
             }
             if (m.core.isNotEmpty() || m.channels.isNotEmpty()) {

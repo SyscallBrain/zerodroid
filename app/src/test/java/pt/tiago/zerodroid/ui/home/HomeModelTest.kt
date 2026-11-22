@@ -81,6 +81,25 @@ class HomeModelTest {
     }
 
     @Test
+    fun automationCountsFailedEnabledJobs() {
+        val jobs = listOf(
+            CronJob("ok", "0 9 * * *", lastStatus = "ok"),
+            CronJob("bad", "0 9 * * *", lastStatus = "error"),
+            CronJob("bad-paused", "0 9 * * *", enabled = false, lastStatus = "error"),
+            CronJob("never", "0 9 * * *"),
+        )
+        val m = buildHomeModel(inputs(crons = jobs), now, zone)
+        assertEquals(4, m.automationJobs)
+        assertEquals(1, m.automationFailing)
+        val offline = buildHomeModel(
+            HomeInputs(connState = ConnState.Backoff(5_000, "Connection refused"), host = "100.64.0.10", daemonName = "home-server"),
+            now, zone, previous = m,
+        )
+        assertEquals(4, offline.automationJobs)
+        assertEquals(1, offline.automationFailing)
+    }
+
+    @Test
     fun offlineKeepsLastKnownValues() {
         val online = buildHomeModel(inputs(agents = listOf(AgentStatusEntry("main", true))), now, zone)
         assertTrue(online.loaded)
