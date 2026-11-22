@@ -60,6 +60,10 @@ memory all stay on the daemon.
   Android Keystore, a pinned CA, and an encrypted bearer token. Pairing
   always asks you to compare a short code, so another app cannot pair
   silently.
+- **Sign in with OIDC**: for daemons behind an identity provider, sign in
+  like `zerocode login`, approving in the browser, with no pairing link. The
+  app reminds you before the sign-in expires and renews it without
+  interrupting a running turn.
 
 ## Screenshots
 
@@ -73,19 +77,22 @@ memory all stay on the daemon.
 | Chat menu | Choose a folder | Editing a setting |
 
 <details>
-<summary>Pairing</summary>
+<summary>Pairing and sign-in</summary>
 
 | | | |
 |:-:|:-:|:-:|
-| ![The welcome screen with the pairing options](docs/screenshots/onboarding.jpg) | ![Confirming the pairing code](docs/screenshots/pair-confirm.jpg) | ![The paired daemon and its certificate](docs/screenshots/pairing-settings.jpg) |
+| ![The welcome screen with the pairing and OIDC options](docs/screenshots/onboarding.jpg) | ![Confirming the pairing code](docs/screenshots/pair-confirm.jpg) | ![The paired daemon and its certificate](docs/screenshots/pairing-settings.jpg) |
 | Welcome | Compare the code | Paired daemon |
+| ![The OIDC sign-in form with the advanced WSS and gateway URLs](docs/screenshots/oidc-sign-in.jpg) | | |
+| Sign in with OIDC | | |
 
 </details>
 
 ## Install
 
 You need Android 10 or newer and a ZeroClaw daemon, version 0.9.0 or newer,
-with its RPC plane (WSS) and enrollment endpoint enabled.
+with its RPC plane (WSS) enabled, plus either its enrollment endpoint (to pair
+with a link) or an OIDC provider (to [sign in](#sign-in-with-oidc)).
 
 Download `zerodroid-X.Y.Z.apk` from the
 [latest release](https://github.com/SyscallBrain/zerodroid/releases/latest)
@@ -163,14 +170,19 @@ the way `zerocode login` does (ZeroClaw v0.9.0 or later), with no pairing link.
 Tap *Sign in with OIDC*, enter the daemon host and the provider alias (for
 example `corp`), and approve the sign-in in the browser. *Advanced* takes a
 custom WSS URL (default `wss://<host>:9781/`) and gateway URL (default
-`https://<host>:42617`, or the HTTPS URL of the proxy in front of it).
+`https://<host>:42617`, or the HTTPS URL of the proxy in front of it). Plain
+`http://` is accepted only for a gateway on the phone itself (`127.0.0.1`),
+such as a daemon in Termux.
 
 The daemon needs, as for `zerocode login`:
 
 - an `[oidc.<alias>]` provider with the device authorization grant enabled at
   the identity provider;
-- a permission mapping that gives the user `sessions:create` and at least one
-  allowed agent (ZeroDroid assumes operator-level access in v1);
+- a permission mapping for the user. Sign-in itself needs `sessions:create`
+  and at least one allowed agent, but the app also reads the daemon's status,
+  agents, costs, SOPs and config: with only `sessions` granted, most screens
+  say the device is not allowed. ZeroDroid expects operator-level access
+  (read on those resources, or `admin = true`);
 - WSS enabled, with the host the phone uses in `[wss].sans`;
 - the gateway reachable over HTTPS. If Android does not trust its certificate,
   the app shows the SHA-256 fingerprint and pins that exact certificate once
@@ -178,8 +190,12 @@ The daemon needs, as for `zerocode login`:
 
 ZeroClaw does not hand out refresh tokens, so ZeroDroid asks you to renew the
 sign-in five minutes before the access token expires (sooner for very short
-tokens). Renewing keeps a running turn going; if the token runs out, the app
-disconnects and waits for you to sign in again. Give the client an access
+tokens), and asks again by notification if an agent is working while the app
+is in the background. Renewing re-verifies the new token on the open
+connection, so a running turn keeps going; if the token runs out, the app
+disconnects and waits for you to sign in again. With token introspection the
+daemon also asks clients to re-verify every `revalidation_secs` (60 s by
+default); ZeroDroid does that on its own, without interrupting you. Give the client an access
 token lifetime of **30 to 60 minutes**: with Keycloak's 5-minute default you
 would be asked every few minutes.
 
@@ -193,7 +209,9 @@ ZeroDroid speaks the daemon's JSON-RPC protocol over WebSocket with TLS 1.3
 and a client certificate (port 9781 by default). On first use it creates a
 P-256 key inside the Android Keystore, enrolls a certificate with the
 one-time code (port 9782), pins the daemon's CA and stores the token
-encrypted with a Keystore key.
+encrypted with a Keystore key. With OIDC, the gateway relays the identity
+provider's device grant (with PKCE) and signs the certificate instead, and the
+token is the provider's access token, sent with `auth_provider = "oidc.<alias>"`.
 
 A turn on the daemon belongs to the connection that started it, so the app
 keeps that connection alive in a foreground service while a turn or an

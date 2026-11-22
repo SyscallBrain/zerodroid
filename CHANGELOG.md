@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Sign in with OIDC, like `zerocode login`, for daemons behind an identity
+  provider: enter the host and the provider alias, approve in the browser, and
+  no pairing link is needed. A gateway with a certificate Android does not
+  trust shows its SHA-256 fingerprint, and ZeroDroid pins that exact
+  certificate once you accept it.
+- A banner, and a notification while an agent works in the background, asks
+  you to renew the sign-in five minutes before it expires. Renewing keeps a
+  running turn going.
+
 ## [0.5.0] - 2026-11-22
 
 ### Added
