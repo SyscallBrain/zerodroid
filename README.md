@@ -124,6 +124,13 @@ memory all stay on the daemon.
 | ![Inserting the output of earlier steps into the instructions](docs/screenshots/workflow-instructions.jpg) | ![Workflow settings with the execution mode, agent, priority and triggers](docs/screenshots/workflow-settings.jpg) | ![Running a workflow with optional input](docs/screenshots/workflow-run.jpg) |
 | Outputs of earlier steps | Settings and triggers | Run |
 
+### Canvas
+
+| | | |
+|:-:|:-:|:-:|
+| ![Home with the Canvas card showing four saved canvases](docs/screenshots/canvas-home.jpg) | ![The list of saved canvases with their type, frame count and agent](docs/screenshots/canvas-list.jpg) | ![A bar chart an agent drew, opened from the list](docs/screenshots/canvas-chart.jpg) |
+| The Canvas card | Saved canvases | A chart an agent drew |
+
 ## Install
 
 You need Android 10 or newer and a ZeroClaw daemon, version 0.9.0 or newer,
