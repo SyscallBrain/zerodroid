@@ -164,8 +164,9 @@ class HomeModelTest {
             HomeInputs(connState = ConnState.AuthFailed(pt.tiago.zerodroid.data.EXPIRED_MESSAGE), host = "h", daemonName = "d"),
             java.time.Instant.EPOCH, java.time.ZoneId.of("UTC"),
         )
-        assertTrue(m.hint!!, m.hint!!.contains("Sign in again"))
-        assertFalse(m.hint!!, m.hint!!.contains("Unpair"))
+        // The app-wide banner carries "Sign in again"; Home must not repeat it with a useless "Retry now".
+        assertEquals("Sign-in expired", m.headline)
+        assertNull(m.hint)
     }
 
     @Test
@@ -180,5 +181,15 @@ class HomeModelTest {
         assertTrue(chatConnectionBannerVisible(ConnState.AuthFailed("refused")))
         assertTrue(chatConnectionBannerVisible(ConnState.Backoff(1000, "x")))
         assertFalse(chatConnectionBannerVisible(ConnState.Ready(pt.tiago.zerodroid.rpc.proto.InitializeResult(1, "0.9.0", 1))))
+    }
+
+    @Test
+    fun refusedPairingStillExplainsHowToRecover() {
+        val m = buildHomeModel(
+            HomeInputs(connState = ConnState.AuthFailed("Pairing revoked"), host = "h", daemonName = "d"),
+            java.time.Instant.EPOCH, java.time.ZoneId.of("UTC"),
+        )
+        assertEquals("Access refused", m.headline)
+        assertTrue(m.hint!!, m.hint!!.contains("Unpair"))
     }
 }

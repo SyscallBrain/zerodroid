@@ -120,7 +120,9 @@ private fun stateRank(s: AgentState) = when (s) {
 fun buildHomeModel(inputs: HomeInputs, now: Instant, zone: ZoneId, previous: HomeModel? = null): HomeModel {
     val where = if (isLoopback(inputs.host)) "this phone" else "${inputs.daemonName} · Tailscale"
     val ready = inputs.connState is ConnState.Ready
+    val signInExpired = (inputs.connState as? ConnState.AuthFailed)?.message == pt.tiago.zerodroid.data.EXPIRED_MESSAGE
     val (lead, accent, tone) = when (val s = inputs.connState) {
+        is ConnState.AuthFailed if signInExpired -> Triple("Sign-in", "expired", Tone.Danger)
         is ConnState.Ready -> Triple("ZeroClaw is", "running", Tone.Live)
         is ConnState.Connecting, ConnState.Idle -> Triple("", "Connecting…", Tone.Neutral)
         is ConnState.Backoff -> Triple("Daemon", "unreachable", Tone.Danger)
@@ -134,9 +136,8 @@ fun buildHomeModel(inputs: HomeInputs, now: Instant, zone: ZoneId, previous: Hom
     }
     val hint = when (val s = inputs.connState) {
         is ConnState.Backoff -> "Retrying in ${(s.retryInMs + 999) / 1000}s · ${s.cause}"
-        is ConnState.AuthFailed ->
-            if (s.message == pt.tiago.zerodroid.data.EXPIRED_MESSAGE) "${s.message}. Sign in again to reconnect."
-            else "${s.message}. Unpair in Config and pair again."
+        // An expired sign-in is announced, with its "Sign in again" action, by the app-wide banner.
+        is ConnState.AuthFailed -> if (signInExpired) null else "${s.message}. Unpair in Config and pair again."
         else -> null
     }
     val keep = previous?.takeIf { !ready || it.loaded }
