@@ -73,4 +73,10 @@ class OidcTargetTest {
             assertEquals(it, Field.WssUrl, field(parseOidcTarget("h", "c", wssUrl = it)))
         }
     }
+
+    @Test
+    fun wssUrlForAnotherHostIsRejected() {
+        assertEquals(Field.WssUrl, field(parseOidcTarget("daemon.example.com", "c", wssUrl = "wss://other.example.com:9781/")))
+        assertTrue(parseOidcTarget("DAEMON.example.com", "c", wssUrl = "wss://daemon.example.com/zc/").isSuccess)
+    }
 }

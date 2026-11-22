@@ -273,4 +273,65 @@ class OidcSignInViewModelTest {
         assertTrue(s.message, s.message.contains("https://127.0.0.1:42617"))
         assertTrue(s.message, s.message.contains("http://"))
     }
+
+    @Test
+    fun closingTheViewModelStopsAGrantInFlight() = runTest(UnconfinedTestDispatcher()) {
+        val http = FakeHttp().apply { pollGate = CompletableDeferred() }
+        val rec = Recorder()
+        val vm = vm(this, http, rec)
+        vm.submit("h", "corp", null, null)
+        vm.close()
+        http.pollGate!!.complete(Unit)
+        assertNull(rec.persisted)
+        assertTrue(rec.events.isEmpty())
+    }
+
+    @Test
+    fun cancelDuringPersistKeepsTheKey() = runTest(UnconfinedTestDispatcher()) {
+        val gate = CompletableDeferred<Unit>()
+        var persisted = false
+        var deleted = 0
+        val http = FakeHttp()
+        val vm = OidcSignInViewModel(
+            OidcMode.Onboard, OidcLoginClient(http, { "csr" }, { now }, {}, { "v" }), http,
+            { _, _ -> Result.success(Unit) }, { _, _ -> gate.await(); persisted = true }, { _, _, _ -> }, { null }, { deleted++ },
+            scope = this, nowSeconds = { now },
+        )
+        vm.submit("h", "corp", null, null)
+        vm.cancel()
+        gate.complete(Unit)
+        assertTrue("persist must finish once started", persisted)
+        assertEquals(0, deleted)
+    }
+
+    @Test
+    fun unsafeVerificationLinkIsRefused() = runTest(UnconfinedTestDispatcher()) {
+        for (uri in listOf("zerodroid://pair?v=1", "javascript:alert(1)", "http://idp.example.com/device")) {
+            val http = object : OidcHttp by FakeHttp() {
+                override suspend fun deviceStart(gw: GatewaySpec, alias: String, codeChallenge: String) =
+                    DeviceStart("dc", "ABCD", uri, null, 600, 5)
+            }
+            val vm = OidcSignInViewModel(
+                OidcMode.Onboard, OidcLoginClient(http, { "csr" }, { now }, {}, { "v" }), http,
+                { _, _ -> Result.success(Unit) }, { _, _ -> }, { _, _, _ -> }, { null }, {}, scope = this, nowSeconds = { now },
+            )
+            vm.submit("h", "corp", null, null)
+            val s = vm.state.value
+            assertTrue("$uri -> $s", s is OidcState.Failed && s.message.contains("sign-in link"))
+        }
+    }
+
+    @Test
+    fun loopbackHttpVerificationLinkIsAllowed() = runTest(UnconfinedTestDispatcher()) {
+        val http = object : OidcHttp by FakeHttp() {
+            override suspend fun deviceStart(gw: GatewaySpec, alias: String, codeChallenge: String) =
+                DeviceStart("dc", "ABCD", "http://127.0.0.1:42791/approve", null, 600, 5)
+        }
+        val vm = OidcSignInViewModel(
+            OidcMode.Onboard, OidcLoginClient(http, { "csr" }, { now }, {}, { "v" }), http,
+            { _, _ -> Result.success(Unit) }, { _, _ -> }, { _, _, _ -> }, { null }, {}, scope = this, nowSeconds = { now },
+        )
+        vm.submit("h", "corp", null, null)
+        assertEquals(OidcState.Done, vm.state.value)
+    }
 }

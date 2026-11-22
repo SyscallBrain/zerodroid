@@ -65,6 +65,13 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
     val profile = (phase as? AppPhase.Paired)?.profile
     var confirmUnpair by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    // Ticks so "expires in N min" stays true while the screen is open.
+    val now by androidx.compose.runtime.produceState(System.currentTimeMillis() / 1000) {
+        while (true) {
+            kotlinx.coroutines.delay(15_000)
+            value = System.currentTimeMillis() / 1000
+        }
+    }
 
     Column(modifier.fillMaxSize()) {
         ZcTopBar("ZeroDroid & pairing", navigation = { ZcIconButton(ZcIcons.Back, "Back", onClick = onBack) })
@@ -101,7 +108,7 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
                     InfoRow(ZcIcons.Qr, "Device", profile.deviceId.take(18), mono = true)
                     if (profile.isOidc) {
                         Divider()
-                        InfoRow(ZcIcons.Clock, "Sign-in", oidcSignInText(profile, System.currentTimeMillis() / 1000))
+                        InfoRow(ZcIcons.Clock, "Sign-in", oidcSignInText(profile, now))
                     }
                 }
             }

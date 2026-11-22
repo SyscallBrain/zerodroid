@@ -6,6 +6,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +48,17 @@ sealed interface OidcMode {
 
 private const val CERT_REUSE_MIN_S = 3600L
 
+/** The identity provider's page may only be opened over https, or plain http on this phone's loopback. */
+internal fun safeSignInLink(uri: String): Boolean {
+    val u = runCatching { URI(uri) }.getOrNull() ?: return false
+    val host = u.host?.lowercase() ?: return false
+    return when (u.scheme?.lowercase()) {
+        "https" -> true
+        "http" -> host == "127.0.0.1" || host == "localhost" || host == "[::1]" || host == "::1"
+        else -> false
+    }
+}
+
 /** Operator hints for a WSS handshake that fails after the gateway accepted the sign-in (spec §5.4). */
 internal fun wssFailureHint(cause: String, host: String): String = when {
     "Hostname" in cause || "not verified" in cause ->
@@ -78,6 +91,7 @@ class OidcSignInViewModel(
     private var target: OidcTarget? = null
     private var gateway: GatewaySpec? = null
     private var job: Job? = null
+    @Volatile private var closed = false
 
     private val idle get() = _state.value.let { it is OidcState.Form || it is OidcState.Failed }
 
@@ -112,6 +126,14 @@ class OidcSignInViewModel(
         checkGateway()
     }
 
+    /** Stops any grant in flight; called when the view model is cleared. */
+    fun close() {
+        closed = true
+        job?.cancel()
+    }
+
+    override fun onCleared() = close()
+
     fun cancel() {
         job?.cancel()
         job = null
@@ -122,6 +144,7 @@ class OidcSignInViewModel(
         val t = target ?: return
         val gw = gateway ?: return
         _state.value = OidcState.CheckingGateway
+        if (closed) return
         job = scope.launch {
             var keyUsed = false
             try {
@@ -137,6 +160,11 @@ class OidcSignInViewModel(
                     }
                 }
                 val grant = login.start(gw, t.alias)
+                val link = grant.start.verificationUriComplete ?: grant.start.verificationUri
+                if (!safeSignInLink(link)) {
+                    _state.value = OidcState.Failed("The gateway sent an unsafe sign-in link. Only https:// pages are opened.")
+                    return@launch
+                }
                 _state.value = OidcState.Approve(
                     userCode = grant.start.userCode,
                     verificationHost = runCatching { URI(grant.start.verificationUri).host }.getOrNull() ?: grant.start.verificationUri,
@@ -166,8 +194,10 @@ class OidcSignInViewModel(
                         )
                         _state.value = OidcState.Connecting
                         probe(profile, token.accessToken).getOrElse { throw WssProbeFailed(it.message ?: "Could not connect") }
-                        persist(profile, token.accessToken)
+                        // From here the key belongs to the saved profile: a cancel must neither interrupt
+                        // the save halfway nor delete the key it now refers to.
                         keyUsed = false
+                        withContext(NonCancellable) { persist(profile, token.accessToken) }
                     }
                 }
                 _state.value = OidcState.Done

@@ -236,9 +236,10 @@ object Notifications {
             var shown: SignInNotice? = null
             kotlinx.coroutines.flow.combine(
                 ZeroDroidConnection.signIn, ZeroDroidConnection.holdForeground, ZeroDroidConnection.foregroundState,
-            ) { status, holding, fg -> Triple(status, holding, fg) }
-                .collect { (status, holding, fg) ->
-                    val notice = signInNotification(status, holding, fg, shown)
+                ZeroDroidConnection.renewRequested,
+            ) { status, holding, fg, renewing -> SignInInputs(status, holding, fg, renewing) }
+                .collect { (status, holding, fg, renewing) ->
+                    val notice = signInNotification(status, holding, fg, shown, renewing)
                     if (notice == null) {
                         if (shown != null) cancelSignIn(app)
                     } else if (notice != shown) {
@@ -252,14 +253,23 @@ object Notifications {
 
 enum class SignInNotice { Expiring, Expired }
 
+private data class SignInInputs(val status: SignInStatus, val holding: Boolean, val foreground: Boolean, val renewing: Boolean)
+
 /**
  * Expiry stops the client, which drops running turns, so `holding` goes false at the very moment the
  * sign-in expires: once an Expiring notice was shown, the Expired one is posted regardless.
  */
-internal fun signInNotification(status: SignInStatus, holding: Boolean, foreground: Boolean, shown: SignInNotice? = null): SignInNotice? = when {
+internal fun signInNotification(
+    status: SignInStatus,
+    holding: Boolean,
+    foreground: Boolean,
+    shown: SignInNotice? = null,
+    renewing: Boolean = false,
+): SignInNotice? = when {
     foreground -> null
     status == SignInStatus.Expired && (holding || shown != null) -> SignInNotice.Expired
-    !holding -> null
+    // The user is already in the renew sheet (approving in the browser puts the app in the background).
+    !holding || renewing -> null
     status is SignInStatus.Expiring -> SignInNotice.Expiring
     else -> null
 }

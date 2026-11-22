@@ -56,4 +56,17 @@ class OidcHttpParseTest {
 
     @Test
     fun serviceUnavailableIsRetryable() = assertEquals(PollOutcome.RateLimited(7), parsePollResponse(503, """{"error":"busy"}""", 7))
+
+    @Test
+    fun onlyACertificateProblemAsksForTrust() {
+        // No certificate seen (reset, protocol error): not a trust question.
+        assertEquals(false, tlsFailureNeedsTrust(leafSha256 = null, systemTrustsChain = false, pin = null))
+        // Android trusts the chain, so the failure was something else (reset mid-handshake, etc.).
+        assertEquals(false, tlsFailureNeedsTrust(leafSha256 = "aa", systemTrustsChain = true, pin = null))
+        // The pinned certificate is the one served: the failure is not about trust either.
+        assertEquals(false, tlsFailureNeedsTrust(leafSha256 = "aa", systemTrustsChain = false, pin = "AA"))
+        // Untrusted, or a different certificate than the pinned one: ask.
+        assertEquals(true, tlsFailureNeedsTrust(leafSha256 = "aa", systemTrustsChain = false, pin = null))
+        assertEquals(true, tlsFailureNeedsTrust(leafSha256 = "bb", systemTrustsChain = false, pin = "aa"))
+    }
 }

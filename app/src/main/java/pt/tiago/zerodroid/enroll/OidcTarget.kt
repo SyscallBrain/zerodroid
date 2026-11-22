@@ -44,7 +44,15 @@ fun parseOidcTarget(
     gatewayUrl: String? = null,
 ): Result<OidcTarget> = runCatching {
     val a = normalizeAlias(alias)
-    val wss = wssUrl?.trim()?.takeIf { it.isNotEmpty() }?.let(::parseWss) ?: parseHost(host)
+    val explicit = wssUrl?.trim()?.takeIf { it.isNotEmpty() }?.let(::parseWss)
+    if (explicit != null && host.isNotBlank()) {
+        val typed = parseHost(host).host.removeSurrounding("[", "]")
+        val inUrl = explicit.host.removeSurrounding("[", "]")
+        if (!typed.equals(inUrl, ignoreCase = true)) {
+            fail(OidcTargetException.Field.WssUrl, "The WSS URL points to $inUrl, not to $typed.")
+        }
+    }
+    val wss = explicit ?: parseHost(host)
     val wssHost = wss.host
     val gateway = gatewayUrl?.trim()?.takeIf { it.isNotEmpty() }?.let(::parseGateway)
         ?: "https://${hostForUrl(wssHost)}:$DEFAULT_GATEWAY_PORT"

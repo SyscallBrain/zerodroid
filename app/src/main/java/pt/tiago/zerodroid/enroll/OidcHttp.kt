@@ -99,6 +99,13 @@ internal fun parsePollResponse(status: Int, body: String, retryAfter: Long?): Po
     else -> throw EnrollHttpException(status, errorField(body) ?: "gateway HTTP $status")
 }
 
+/**
+ * Whether a failed TLS handshake is a question for the user. Only a certificate Android does not
+ * trust (and that is not the one already pinned) is; a reset or protocol error is just an error.
+ */
+internal fun tlsFailureNeedsTrust(leafSha256: String?, systemTrustsChain: Boolean, pin: String?): Boolean =
+    leafSha256 != null && !systemTrustsChain && !leafSha256.equals(pin, ignoreCase = true)
+
 /** Accepts exactly one server certificate: the leaf whose DER SHA-256 the user confirmed. */
 internal class LeafPinTrustManager(private val expectedSha256: String) : X509TrustManager {
     override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = throw CertificateException("server only")
@@ -113,9 +120,11 @@ internal class LeafPinTrustManager(private val expectedSha256: String) : X509Tru
 
 /** Accepts anything and remembers the leaf: used only to show the user what they would trust. */
 private class CapturingTrustManager : X509TrustManager {
-    @Volatile var leaf: X509Certificate? = null
+    @Volatile var chain: Array<X509Certificate> = emptyArray()
+    @Volatile var authType: String = "UNKNOWN"
+    val leaf: X509Certificate? get() = chain.firstOrNull()
     override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
-    override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) { leaf = chain.firstOrNull() }
+    override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) { this.chain = chain; this.authType = authType }
     override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
 }
 
@@ -157,8 +166,11 @@ class OkHttpOidcHttp : OidcHttp {
             // Only the certificate is read on this second connection; no credential is sent.
             val capture = CapturingTrustManager()
             runCatching { client(capture, anyHost = true).newCall(request).execute().close() }
-            val leaf = capture.leaf ?: throw e
-            GatewayProbe.Untrusted(URI(gw.url).host, sha256Hex(leaf.encoded))
+            val leafSha = capture.leaf?.let { sha256Hex(it.encoded) }
+            val systemTrusts = capture.chain.isNotEmpty() &&
+                runCatching { systemTrustManager().checkServerTrusted(capture.chain, capture.authType) }.isSuccess
+            if (!tlsFailureNeedsTrust(leafSha, systemTrusts, gw.pinnedLeafSha256)) throw e
+            GatewayProbe.Untrusted(URI(gw.url).host, leafSha!!)
         }
     }
 

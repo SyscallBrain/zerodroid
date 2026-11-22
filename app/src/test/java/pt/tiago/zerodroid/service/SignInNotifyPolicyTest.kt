@@ -26,4 +26,10 @@ class SignInNotifyPolicyTest {
         assertEquals(null, signInNotification(SignInStatus.Expired, holding = false, foreground = false, shown = null))
         assertEquals(null, signInNotification(SignInStatus.Expired, holding = false, foreground = true, shown = SignInNotice.Expiring))
     }
+
+    @Test
+    fun noReminderWhileTheUserIsAlreadyRenewing() {
+        assertEquals(null, signInNotification(SignInStatus.Expiring(100), holding = true, foreground = false, renewing = true))
+        assertEquals(SignInNotice.Expired, signInNotification(SignInStatus.Expired, holding = true, foreground = false, renewing = true))
+    }
 }
