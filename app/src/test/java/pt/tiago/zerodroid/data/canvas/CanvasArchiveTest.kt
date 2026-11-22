@@ -150,4 +150,37 @@ class CanvasArchiveTest {
         a.delete("c")
         assertTrue(a.canvases.value.isEmpty())
     }
+
+    @Test
+    fun captureQueuedBeforeADaemonSwitchStaysWithItsDaemon() = runTest(UnconfinedTestDispatcher()) {
+        val a = archive().apply { bind("ca:A") }
+        (1..20).forEach { a.render("a$it", "c$it") }
+        a.bind("ca:B")
+        a.awaitIdle()
+        assertTrue(a.canvases.value.isEmpty())
+        a.bind("ca:A")
+        assertEquals(20, a.canvases.value.size)
+    }
+
+    @Test
+    fun aHistoryPageIsWrittenOncePerCanvas() = runTest(UnconfinedTestDispatcher()) {
+        val a = archive().apply { bind("ca:A") }
+        a.onCaptures("s", "main", (1..30).map { CanvasCapture.Render("a$it", CanvasRender(if (it % 2 == 0) "even" else "odd", "html", "$it")) })
+        a.awaitIdle()
+        assertEquals(2, a.saveCount)
+        assertEquals(15, a.frames("even").size)
+        assertEquals("30", a.frames("even").last().content)
+    }
+
+    @Test
+    fun migrateMovesCanvasesToTheNewKey() = runTest(UnconfinedTestDispatcher()) {
+        val a = archive().apply { bind("ca:old") }
+        a.render("a1", "c")
+        a.awaitIdle()
+        a.migrate("ca:old", "ca:new")
+        a.bind("ca:new")
+        assertEquals(listOf("c"), a.canvases.value.map { it.canvasId })
+        a.bind("ca:old")
+        assertTrue(a.canvases.value.isEmpty())
+    }
 }

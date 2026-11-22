@@ -81,7 +81,6 @@ fun HomeScreen(
     val workflows by viewModel.workflows.collectAsStateWithLifecycle()
     val showWorkflows by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showWorkflowsTile.collectAsStateWithLifecycle()
     val showCanvas by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showCanvasTile.collectAsStateWithLifecycle()
-    val canvases by pt.tiago.zerodroid.data.ZeroDroidConnection.canvas.canvases.collectAsStateWithLifecycle()
     val m by viewModel.model.collectAsStateWithLifecycle()
     pt.tiago.zerodroid.RecomposeProbe("HomeScreen")
     pt.tiago.zerodroid.Perf.mark("home.firstComposition")
@@ -185,6 +184,8 @@ fun HomeScreen(
                 )
             }
             if (showCanvas) item("canvas") {
+                // Read here, not at the top: a new frame recomposes only this tile.
+                val canvases by pt.tiago.zerodroid.data.ZeroDroidConnection.canvas.canvases.collectAsStateWithLifecycle()
                 ZcTile(
                     "Canvas",
                     canvases.size.toString(),

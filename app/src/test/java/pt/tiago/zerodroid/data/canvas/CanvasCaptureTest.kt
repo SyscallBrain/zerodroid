@@ -68,4 +68,13 @@ class CanvasCaptureTest {
             got,
         )
     }
+
+    @Test
+    fun failedResultWithoutItsCallOnThePageIsReported() {
+        val result = MessageEntry("tool", "denied", "tool_result", "z", null, "canvas", "denied")
+        assertEquals(listOf(CanvasCapture.Failed("z")), canvasCapturesFromHistory(listOf(result)))
+        val ok = MessageEntry("tool", "", "tool_result", "y", null, "canvas", "Rendered html content to canvas 'c' (frame: f)")
+        val other = MessageEntry("tool", "err", "tool_result", "x", null, "shell", "err")
+        assertTrue(canvasCapturesFromHistory(listOf(ok, other)).isEmpty())
+    }
 }

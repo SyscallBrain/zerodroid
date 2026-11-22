@@ -15,7 +15,8 @@ class FrameDocumentTest {
     }
 
     @Test
-    fun fullHtmlIsKept() = assertEquals("<HTML><body>x</body></HTML>", frameDocument("html", "<HTML><body>x</body></HTML>", "#000000"))
+    fun fullHtmlKeepsItsContent() =
+        assertEquals("<HTML><meta name=\"color-scheme\" content=\"dark\"><body>x</body></HTML>", frameDocument("html", "<HTML><body>x</body></HTML>", "#000000"))
 
     @Test
     fun svgIsCentredAndScaled() {
@@ -36,5 +37,13 @@ class FrameDocumentTest {
         assertTrue(isFullDocument("<html><body>x</body></html>"))
         assertTrue(!isFullDocument("<p>see the <html> tag</p>"))
         assertEquals("<p>see the <html> tag</p>", frameDocument("html", "<p>see the <html> tag</p>", "#000000")!!.substringAfter("<body>").substringBefore("</body>"))
+    }
+
+    @Test
+    fun fullDocumentGetsDarkColourSchemeAfterDoctype() {
+        val doc = frameDocument("html", "<!DOCTYPE html><html><head><title>t</title></head><body>x</body></html>", "#000000")!!
+        assertTrue(doc.startsWith("<!DOCTYPE html><html><head><meta name=\"color-scheme\" content=\"dark\">"))
+        val noHead = frameDocument("html", "<html lang=\"pt\"><body>x</body></html>", "#000000")!!
+        assertTrue(noHead.startsWith("<html lang=\"pt\"><meta name=\"color-scheme\" content=\"dark\">"))
     }
 }

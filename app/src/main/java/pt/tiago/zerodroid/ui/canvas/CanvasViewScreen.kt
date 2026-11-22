@@ -67,13 +67,25 @@ fun CanvasViewScreen(
     // Reload when a new frame lands in this canvas while it is open.
     LaunchedEffect(canvasId, summary?.frameCount, summary?.updatedAt) { frames = archive.frames(canvasId) }
     val shown = frames?.let { list -> list.firstOrNull { it.id == selected } ?: list.lastOrNull() }
+    // Sessions still on the daemon; null until known or when the daemon cannot be asked (button stays).
+    var liveSessions by remember { mutableStateOf<Set<String>?>(null) }
+    LaunchedEffect(Unit) {
+        liveSessions = runCatching {
+            val chats = ZeroDroidConnection.sessions.list()
+            // session/list stops at 100: a full page cannot prove a session is gone.
+            if (chats.size >= 100) null
+            else (chats + ZeroDroidConnection.sessions.listCode()).mapTo(HashSet()) { it.sessionId }
+        }.getOrNull()
+    }
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
         ZcTopBar(
             summary?.name ?: canvasId,
             navigation = { ZcIconButton(ZcIcons.Back, "Back", onClick = onBack) },
             actions = {
-                shown?.let { f -> ZcIconButton(ZcIcons.Chats, "Open chat", onClick = { onOpenChat(f.sessionId, f.agentAlias) }) }
+                shown?.takeIf { f -> liveSessions?.contains(f.sessionId) != false }?.let { f ->
+                    ZcIconButton(ZcIcons.Chats, "Open chat", onClick = { onOpenChat(f.sessionId, f.agentAlias) })
+                }
                 if (summary != null) {
                     ZcIconButton(ZcIcons.Wrench, "Rename", onClick = { renaming = true })
                     ZcIconButton(ZcIcons.Trash, "Delete", tint = ZcTokens.danger, onClick = { deleting = true })
@@ -131,7 +143,7 @@ fun CanvasViewScreen(
 private fun FrameContent(f: StoredFrame) {
     val doc = frameDocument(f.contentType, f.content, BACKGROUND_CSS)
     when {
-        doc != null -> CanvasWebView(doc, Modifier.fillMaxSize(), light = f.contentType == "html" && isFullDocument(f.content))
+        doc != null -> CanvasWebView(doc, Modifier.fillMaxSize())
         f.contentType == "markdown" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             MarkdownText(f.content)
         }

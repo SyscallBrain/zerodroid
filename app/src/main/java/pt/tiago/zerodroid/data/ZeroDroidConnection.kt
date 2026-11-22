@@ -223,6 +223,8 @@ object ZeroDroidConnection {
         vault.store(token.accessToken)
         // A new certificate may come with a new CA chain: keep the identity under the new key.
         identity?.let { id -> if (updated.daemonKey() != current.daemonKey()) runCatching { vault.storeIdentity(updated.daemonKey(), TuiIdentity(id.tuiId, id.tuiSig)) } }
+        // Same for the canvases saved from this daemon (queued before the bind the new phase triggers).
+        if (updated.daemonKey() != current.daemonKey()) runCatching { canvas.migrate(current.daemonKey(), updated.daemonKey()) }
         gate.onRenewed()
         currentToken = token.accessToken
         _phase.value = AppPhase.Paired(updated)

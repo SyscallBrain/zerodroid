@@ -91,7 +91,7 @@ class ChatSession(
 
     private fun captureCanvas(messages: List<pt.tiago.zerodroid.rpc.proto.MessageEntry>) {
         val sink = canvasSink() ?: return
-        pt.tiago.zerodroid.data.canvas.canvasCapturesFromHistory(messages).forEach { sink.onCapture(sessionId, agentAlias, it) }
+        sink.onCaptures(sessionId, agentAlias, pt.tiago.zerodroid.data.canvas.canvasCapturesFromHistory(messages))
     }
 
     fun onApprovalResolved(requestId: String, status: ApprovalStatus) {

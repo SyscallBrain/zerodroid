@@ -24,6 +24,10 @@ private const val MAX_TOMBSTONES = 20_000
 /** Receives canvas frames seen in chats. */
 fun interface CanvasSink {
     fun onCapture(sessionId: String, agentAlias: String, capture: CanvasCapture)
+
+    /** A page of history at once, so the sink can write each canvas once. */
+    fun onCaptures(sessionId: String, agentAlias: String, captures: List<CanvasCapture>) =
+        captures.forEach { onCapture(sessionId, agentAlias, it) }
 }
 
 @Serializable
@@ -86,9 +90,10 @@ class CanvasArchive(
         }
     }
 
-    suspend fun bind(daemonKey: String) = io {
-        val d = File(root, sha256(daemonKey).take(16))
-        if (d == dir) return@io
+    /** Switches to [daemonKey]'s canvases, after every capture already queued for the previous one. */
+    suspend fun bind(daemonKey: String) = enqueue {
+        val d = dirFor(daemonKey)
+        if (d == dir) return@enqueue
         dir = d
         summaries.clear()
         tombstones.clear()
@@ -104,8 +109,39 @@ class CanvasArchive(
         publish()
     }
 
-    override fun onCapture(sessionId: String, agentAlias: String, capture: CanvasCapture) {
-        queue.trySend { io { apply(sessionId, agentAlias, capture) } }
+    override fun onCapture(sessionId: String, agentAlias: String, capture: CanvasCapture) =
+        onCaptures(sessionId, agentAlias, listOf(capture))
+
+    override fun onCaptures(sessionId: String, agentAlias: String, captures: List<CanvasCapture>) {
+        if (captures.isNotEmpty()) queue.trySend { io { apply(sessionId, agentAlias, captures) } }
+    }
+
+    /** Canvas files written so far (tests check that a history page costs one write per canvas). */
+    internal var saveCount = 0
+        private set
+
+    /**
+     * The daemon's key changed (a new CA chain on an OIDC renewal): move its canvases to [to]
+     * unless [to] already has some. Bind [to] afterwards.
+     */
+    suspend fun migrate(from: String, to: String) = enqueue {
+        val src = dirFor(from)
+        val dst = dirFor(to)
+        if (src == dst || !src.isDirectory || dst.exists()) return@enqueue
+        if (src.renameTo(dst) && dir == src) dir = dst
+    }
+
+    /** Runs [block] on the worker, after everything queued before it. */
+    private suspend fun <T> enqueue(block: suspend () -> T): T {
+        val done = CompletableDeferred<T>()
+        queue.send {
+            try {
+                done.complete(io(block))
+            } catch (e: Throwable) {
+                done.completeExceptionally(e)
+            }
+        }
+        return done.await()
     }
 
     /** Waits until every capture sent so far is written. */
@@ -140,36 +176,50 @@ class CanvasArchive(
         publish()
     }
 
-    private fun apply(sessionId: String, agentAlias: String, capture: CanvasCapture) {
-        if (dir == null) return
-        val id = frameId(sessionId, capture.toolCallId)
-        when (capture) {
-            is CanvasCapture.Render -> {
-                if (id in index || id in tombstones) return
-                val r = capture.render
-                val old = load(r.canvasId) ?: CanvasFile(r.canvasId, r.canvasId, emptyList())
-                val frame = StoredFrame(id, r.contentType, r.content, clock(), sessionId, agentAlias, capture.toolCallId)
-                val frames = (old.frames + frame).takeLast(MAX_FRAMES)
-                val dropped = old.frames.map { it.id }.toSet() - frames.map { it.id }.toSet()
-                save(old.copy(frames = frames))
-                index = index - dropped + (id to r.canvasId)
-                bury(dropped)
-            }
-            is CanvasCapture.Failed -> {
-                bury(setOf(id))
-                val canvasId = index[id] ?: return
-                val old = load(canvasId) ?: return
-                val frames = old.frames.filter { it.id != id }
-                if (frames.isEmpty()) {
-                    File(dir, fileName(canvasId)).delete()
-                    summaries.remove(canvasId)
-                } else {
-                    save(old.copy(frames = frames))
+    /** Applies [captures] in order, writing each canvas they touch once. */
+    private fun apply(sessionId: String, agentAlias: String, captures: List<CanvasCapture>) {
+        val d = dir ?: return
+        val open = mutableMapOf<String, CanvasFile?>()
+        val dirty = mutableSetOf<String>()
+        val idx = index.toMutableMap()
+        val buried = mutableListOf<String>()
+        fun file(canvasId: String) = open.getOrPut(canvasId) { load(canvasId) }
+        for (capture in captures) {
+            val id = frameId(sessionId, capture.toolCallId)
+            when (capture) {
+                is CanvasCapture.Render -> {
+                    if (id in idx || id in tombstones || id in buried) continue
+                    val r = capture.render
+                    val old = file(r.canvasId) ?: CanvasFile(r.canvasId, r.canvasId, emptyList())
+                    val frame = StoredFrame(id, r.contentType, r.content, clock(), sessionId, agentAlias, capture.toolCallId)
+                    val frames = (old.frames + frame).takeLast(MAX_FRAMES)
+                    val kept = frames.mapTo(HashSet()) { it.id }
+                    old.frames.filter { it.id !in kept }.forEach { idx.remove(it.id); buried += it.id }
+                    open[r.canvasId] = old.copy(frames = frames)
+                    idx[id] = r.canvasId
+                    dirty += r.canvasId
                 }
-                index = index - id
+                is CanvasCapture.Failed -> {
+                    buried += id
+                    val canvasId = idx.remove(id) ?: continue
+                    val old = file(canvasId) ?: continue
+                    open[canvasId] = old.copy(frames = old.frames.filter { it.id != id })
+                    dirty += canvasId
+                }
             }
         }
-        publish()
+        for (canvasId in dirty) {
+            val c = open[canvasId] ?: continue
+            if (c.frames.isEmpty()) {
+                File(d, fileName(canvasId)).delete()
+                summaries.remove(canvasId)
+            } else {
+                save(c)
+            }
+        }
+        index = idx
+        bury(buried)
+        if (dirty.isNotEmpty()) publish()
     }
 
     private fun bury(ids: Collection<String>) {
@@ -203,11 +253,14 @@ class CanvasArchive(
             tmp.renameTo(target)
         }
         summaries[c.canvasId] = summaryOf(c)
+        saveCount++
     }
 
     private fun publish() {
         _canvases.value = summaries.values.sortedByDescending { it.updatedAt }
     }
+
+    private fun dirFor(daemonKey: String) = File(root, sha256(daemonKey).take(16))
 
     private suspend fun <T> io(block: suspend () -> T): T = withContext(Dispatchers.IO) { lock.withLock { block() } }
 

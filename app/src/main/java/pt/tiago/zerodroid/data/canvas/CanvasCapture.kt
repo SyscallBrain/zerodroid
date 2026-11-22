@@ -39,18 +39,17 @@ fun parseCanvasRender(toolName: String?, args: JsonElement?): CanvasRender? {
 /** The tool reports success as `Rendered <type> content to canvas '<id>' (frame: <id>)`; nothing else does. */
 fun canvasRenderSucceeded(output: String): Boolean = output.startsWith("Rendered ")
 
-/** Canvas renders in a page of history, in order, each followed by [CanvasCapture.Failed] if its result says so. */
+/**
+ * Canvas renders in a page of history, in order, and a [CanvasCapture.Failed] for every `canvas`
+ * result that is not a success, even when its call sits on another page.
+ */
 fun canvasCapturesFromHistory(messages: List<MessageEntry>): List<CanvasCapture> {
-    val renders = mutableSetOf<String>()
     val out = mutableListOf<CanvasCapture>()
     for (m in messages) {
         val id = m.toolCallId ?: continue
         when (m.kind) {
-            "tool_call" -> parseCanvasRender(m.toolName, m.toolInput)?.let {
-                renders += id
-                out += CanvasCapture.Render(id, it)
-            }
-            "tool_result" -> if (id in renders && !canvasRenderSucceeded(m.toolOutput ?: m.content)) out += CanvasCapture.Failed(id)
+            "tool_call" -> parseCanvasRender(m.toolName, m.toolInput)?.let { out += CanvasCapture.Render(id, it) }
+            "tool_result" -> if (m.toolName == "canvas" && !canvasRenderSucceeded(m.toolOutput ?: m.content)) out += CanvasCapture.Failed(id)
         }
     }
     return out

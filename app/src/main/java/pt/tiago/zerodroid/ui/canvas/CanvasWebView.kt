@@ -20,13 +20,15 @@ import pt.tiago.zerodroid.ui.theme.ZcTokens
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun CanvasWebView(document: String, modifier: Modifier = Modifier, light: Boolean = false) {
+fun CanvasWebView(document: String, modifier: Modifier = Modifier) {
     AndroidView(
         modifier = modifier,
         factory = { context ->
             WebView(context).apply {
-                // A whole document the agent wrote without styles expects the browser's white page.
-                setBackgroundColor(if (light) android.graphics.Color.WHITE else ZcTokens.background.toArgb())
+                setBackgroundColor(ZcTokens.background.toArgb())
+                // Hidden until the page has painted: a new WebView's first frames are blank (white on
+                // some devices) and showed as a flash when the canvas opened.
+                visibility = android.view.View.INVISIBLE
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
@@ -54,6 +56,10 @@ fun CanvasWebView(document: String, modifier: Modifier = Modifier, light: Boolea
 
                     // POST navigations (form.submit()) never reach shouldOverrideUrlLoading: stop any
                     // page other than the frame itself and put the frame back.
+                    override fun onPageCommitVisible(view: WebView, url: String?) {
+                        view.visibility = android.view.View.VISIBLE
+                    }
+
                     override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                         if (url != null && url != "about:blank") {
                             view.stopLoading()
@@ -68,9 +74,14 @@ fun CanvasWebView(document: String, modifier: Modifier = Modifier, light: Boolea
         update = { view ->
             if (view.tag != document) {
                 view.tag = document
+                view.visibility = android.view.View.INVISIBLE
                 view.loadDataWithBaseURL(null, document, "text/html", "utf-8", null)
             }
         },
-        onRelease = { it.destroy() },
+        onRelease = {
+            it.destroy()
+            // Frames must not leave data for the next one: localStorage and the like go with the view.
+            android.webkit.WebStorage.getInstance().deleteAllData()
+        },
     )
 }
