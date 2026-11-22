@@ -51,6 +51,7 @@ data class EditorState(
     val toast: String? = null,
     val registry: TriggerSourceRegistryDto? = null,
     val toolSuggestions: List<String> = emptyList(),
+    val agents: List<String> = emptyList(),
 )
 
 private const val UNDO_CAP = 50
@@ -74,10 +75,12 @@ class SopEditorViewModel(
     private var version = 0L
     private val undoStack = ArrayDeque<Pair<JsonObject, SopGraphDto?>>()
     private var graphJob: Job? = null
+    private var lastKey: String? = null
 
     init {
         scope.launch { load(name) }
         scope.launch { (repo.triggerSources() as? SopResult.Ok)?.let { r -> _state.update { it.copy(registry = r.value) } } }
+        scope.launch { (repo.agents() as? SopResult.Ok)?.let { r -> _state.update { it.copy(agents = r.value) } } }
     }
 
     private suspend fun load(name: String?) {
@@ -113,12 +116,16 @@ class SopEditorViewModel(
 
     // ── draft edits ─────────────────────────────────────────────────────
 
-    /** Applies a local, non-wire edit, records it for Undo, and re-projects the graph after a short pause. */
-    fun edit(transform: (JsonObject) -> JsonObject) {
+    /**
+     * Applies a local, non-wire edit, records it for Undo, and re-projects the graph after a short
+     * pause. Consecutive edits with the same non-null [key] (typing in one field) share one Undo step.
+     */
+    fun edit(key: String? = null, transform: (JsonObject) -> JsonObject) {
         val cur = _state.value.draft ?: return
         val next = transform(cur)
         if (next == cur) return
-        pushUndo(cur)
+        if (key == null || key != lastKey) pushUndo(cur)
+        lastKey = key
         version++
         _state.update { it.copy(draft = next, dirty = true, canUndo = true) }
         scheduleGraph(next)
@@ -147,6 +154,7 @@ class SopEditorViewModel(
 
     fun undo() {
         val (d, g) = undoStack.removeLastOrNull() ?: return
+        lastKey = null
         version++
         graphJob?.cancel()
         _state.update { it.copy(draft = d, graph = g ?: it.graph, dirty = true, canUndo = undoStack.isNotEmpty(), mode = EditorMode.Browse) }
@@ -269,6 +277,7 @@ class SopEditorViewModel(
     // ── helpers ─────────────────────────────────────────────────────────
 
     private fun pushUndo(d: JsonObject) {
+        lastKey = null
         undoStack.addLast(d to _state.value.graph)
         while (undoStack.size > UNDO_CAP) undoStack.removeFirst()
     }

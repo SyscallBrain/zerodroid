@@ -71,6 +71,11 @@ class SopRepository(private val rpc: RpcCaller) {
 
     suspend fun delete(name: String): SopResult<Unit> = call("sops/delete", named(name), saving = false) { }
 
+    /** Agent aliases, sorted, for the workflow and step agent pickers. */
+    suspend fun agents(): SopResult<List<String>> = call("agents/list", null, saving = false) {
+        decode<pt.tiago.zerodroid.rpc.proto.AgentsListResult>(it).agents.map { a -> a.alias }.sorted()
+    }
+
     suspend fun triggerSources(): SopResult<TriggerSourceRegistryDto> = call("sops/trigger-sources", null) { decode(it) }
 
     /** Starts a manual run; returns the run id. */

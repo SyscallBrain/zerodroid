@@ -35,6 +35,7 @@ class SopEditorViewModelTest {
         on("sops/trigger-sources", """{"sources":["manual"]}""")
         on("sops/list", """{"sops":[{"name":"weather"}]}""")
         on("sops/validate", """{"ok":true,"blocking":[],"warnings":[]}""")
+        on("agents/list", """{"agents":[{"alias":"skydroid","enabled":true,"channels":[]},{"alias":"coder","enabled":false,"channels":[]}]}""")
     }
 
     private fun TestScope.vm(c: FakeCaller, name: String? = "weather") =
@@ -178,6 +179,23 @@ class SopEditorViewModelTest {
         assertTrue(v.state.value.dirty)
         v.save(); runCurrent()
         assertFalse(v.state.value.dirty)
+    }
+
+    @Test
+    fun typingCoalescesUndo() = runTest {
+        val v = vm(rpc())
+        val start = v.state.value.draft
+        "hello".forEachIndexed { i, _ -> v.edit("title:1") { SopDraft.setStep(it, 1, listOf("title"), JsonPrimitive("hello".take(i + 1))) } }
+        v.edit { SopDraft.set(it, "description", JsonPrimitive("x")) }
+        v.edit("title:1") { SopDraft.setStep(it, 1, listOf("title"), JsonPrimitive("hello!")) }
+        v.undo(); v.undo(); v.undo()
+        assertEquals(start, v.state.value.draft)
+        assertFalse(v.state.value.canUndo)
+    }
+
+    @Test
+    fun loadsAgentAliases() = runTest {
+        assertEquals(listOf("coder", "skydroid"), vm(rpc()).state.value.agents)
     }
 
     @Test
