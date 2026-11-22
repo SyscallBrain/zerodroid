@@ -221,4 +221,50 @@ class RpcClientTest {
         assertTrue(thrown is RpcException)
         client.stop()
     }
+
+    @Test
+    fun rejectedIdentityIsDroppedAndTheHandshakeRetriedWithoutIt() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        var identity: ClientIdentity? = ClientIdentity("tui_old", "sig")
+        var rejected = 0
+        val refusals = mutableListOf<String>()
+        val client = RpcClient(
+            transport, "wss://x/", { "tok" }, this,
+            identity = { identity },
+            onIdentityRejected = { rejected++; identity = null },
+            onAuthRequired = { message, _ -> refusals += message },
+        )
+        client.start()
+        val first = ZdJson.parseToJsonElement(transport.sent.first()).jsonObject
+        assertEquals("tui_old", first["params"]!!.jsonObject["tui_id"]!!.jsonPrimitive.content)
+        transport.error(first["id"]!!.jsonPrimitive.content.toLong(), -32010, "Invalid TUI signature")
+
+        assertEquals(1, rejected)
+        assertTrue(refusals.isEmpty())
+        assertFalse(client.state.value is ConnState.AuthFailed)
+        advanceTimeBy(60_000)
+        val retry = ZdJson.parseToJsonElement(transport.sent.last()).jsonObject
+        assertEquals("initialize", retry["method"]!!.jsonPrimitive.content)
+        assertEquals(null, retry["params"]!!.jsonObject["tui_id"])
+        transport.listener!!.onText(initReply(retry["id"]!!.jsonPrimitive.content.toLong()))
+        assertTrue(client.state.first() is ConnState.Ready)
+        client.stop()
+    }
+
+    @Test
+    fun aRefusedTokenKeepsTheIdentityAndStops() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        var rejected = 0
+        val client = RpcClient(
+            transport, "wss://x/", { "tok" }, this,
+            identity = { ClientIdentity("tui_old", "sig") },
+            onIdentityRejected = { rejected++ },
+        )
+        client.start()
+        val id = ZdJson.parseToJsonElement(transport.sent.first()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
+        transport.error(id, -32010, "auth required")
+        assertTrue(client.state.first() is ConnState.AuthFailed)
+        assertEquals(0, rejected)
+        client.stop()
+    }
 }

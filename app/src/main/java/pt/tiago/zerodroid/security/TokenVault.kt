@@ -17,6 +17,8 @@ private val Context.tokenDataStore by preferencesDataStore("zerodroid-token")
 private val TOKEN_KEY = stringPreferencesKey("ciphertext")
 private val TUI_ID_KEY = stringPreferencesKey("tui_id")
 private val TUI_SIG_KEY = stringPreferencesKey("tui_sig")
+/** The daemon the stored identity belongs to (its CA fingerprint); absent on identities from older builds. */
+private val TUI_DAEMON_KEY = stringPreferencesKey("tui_daemon")
 
 /** The daemon-issued connection identity that keeps session ownership across reconnects. */
 data class TuiIdentity(val id: String, val sig: String) {
@@ -66,26 +68,45 @@ class TokenVault(private val context: Context) {
 
     suspend fun load(): String? = read(TOKEN_KEY)
 
-    suspend fun storeIdentity(identity: TuiIdentity) {
+    /** Remembers [identity] as this phone's identity on the daemon [daemon]. */
+    suspend fun storeIdentity(daemon: String, identity: TuiIdentity) {
         val id = encrypt(identity.id)
         val sig = encrypt(identity.sig)
+        val owner = encrypt(daemon)
         context.tokenDataStore.edit {
             it[TUI_ID_KEY] = id
             it[TUI_SIG_KEY] = sig
+            it[TUI_DAEMON_KEY] = owner
         }
     }
 
-    suspend fun loadIdentity(): TuiIdentity? {
-        val id = read(TUI_ID_KEY) ?: return null
-        val sig = read(TUI_SIG_KEY) ?: return null
+    /**
+     * This phone's identity on [daemon], or null if the stored one belongs to another daemon.
+     * One stored before daemons were recorded is taken as [daemon]'s: it was the only one.
+     */
+    suspend fun loadIdentity(daemon: String): TuiIdentity? {
+        val prefs = context.tokenDataStore.data.first()
+        val stored = prefs[TUI_DAEMON_KEY]?.let { decrypt(it) ?: return null }
+        if (stored != null && stored != daemon) return null
+        val id = prefs[TUI_ID_KEY]?.let(::decrypt) ?: return null
+        val sig = prefs[TUI_SIG_KEY]?.let(::decrypt) ?: return null
         return TuiIdentity(id, sig)
     }
 
-    suspend fun clear() {
+    suspend fun forgetIdentity() {
         context.tokenDataStore.edit {
-            it.remove(TOKEN_KEY)
             it.remove(TUI_ID_KEY)
             it.remove(TUI_SIG_KEY)
+            it.remove(TUI_DAEMON_KEY)
         }
+    }
+
+    /**
+     * Drops the bearer token. The TUI identity stays: it is no credential (the daemon still
+     * needs a valid pairing), only what makes this phone the owner of its sessions, so pairing
+     * the same daemon again finds them. [forgetIdentity] drops it.
+     */
+    suspend fun clear() {
+        context.tokenDataStore.edit { it.remove(TOKEN_KEY) }
     }
 }

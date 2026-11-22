@@ -166,19 +166,26 @@ object ZeroDroidConnection {
             _phase.value = AppPhase.Unpaired("This phone's pairing came from an older build that could not connect. Pair it again.")
             return
         }
-        identity = Perf.span("phase.loadIdentity") { vault.loadIdentity() }?.let { ClientIdentity(it.id, it.sig) }
+        identity = Perf.span("phase.loadIdentity") { loadIdentity(profile) }
         Perf.mark("phase.paired")
         _phase.value = AppPhase.Paired(profile)
         scheduleExpiry(profile)
         if (foreground) ensureStarted()
     }
 
-    /** Called by onboarding once enrollment succeeded. */
+    /** This phone's TUI identity on [profile]'s daemon, kept across unpairing and pairing again. */
+    private suspend fun loadIdentity(profile: DaemonProfile): ClientIdentity? =
+        runCatching { vault.loadIdentity(profile.daemonKey()) }.getOrNull()?.let { ClientIdentity(it.id, it.sig) }
+
+    /**
+     * Called by onboarding once enrollment succeeded. Pairing a daemon this phone was paired
+     * with before reuses its identity there, so the daemon still lists the sessions it owns.
+     */
     suspend fun onPaired(profile: DaemonProfile, token: String) {
         store.save(profile)
         vault.store(token)
         gate.onRenewed()
-        identity = null
+        identity = loadIdentity(profile)
         approvals.clear()
         chats.clear()
         _phase.value = AppPhase.Paired(profile)
@@ -206,6 +213,8 @@ object ZeroDroidConnection {
         }
         store.save(updated)
         vault.store(token.accessToken)
+        // A new certificate may come with a new CA chain: keep the identity under the new key.
+        identity?.let { id -> if (updated.daemonKey() != current.daemonKey()) runCatching { vault.storeIdentity(updated.daemonKey(), TuiIdentity(id.tuiId, id.tuiSig)) } }
         gate.onRenewed()
         currentToken = token.accessToken
         _phase.value = AppPhase.Paired(updated)
@@ -372,7 +381,14 @@ object ZeroDroidConnection {
             onIdentity = { id ->
                 if (!probe && id != identity) {
                     identity = id
-                    scope.launch { runCatching { vault.storeIdentity(TuiIdentity(id.tuiId, id.tuiSig)) } }
+                    scope.launch { runCatching { vault.storeIdentity(profile.daemonKey(), TuiIdentity(id.tuiId, id.tuiSig)) } }
+                }
+            },
+            onIdentityRejected = {
+                if (!probe) {
+                    log("conn", "the daemon refused the stored TUI identity; connecting with a new one")
+                    identity = null
+                    scope.launch { runCatching { vault.forgetIdentity() } }
                 }
             },
             authProvider = { profile.authProvider.takeIf { profile.isOidc } },

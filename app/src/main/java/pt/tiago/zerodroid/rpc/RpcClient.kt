@@ -81,6 +81,12 @@ open class RpcClient(
     /** Fires with the daemon's message whenever any response carries AUTH_REQUIRED, including `initialize`. */
     /** `atInitialize` tells a refused handshake apart from a refused request on an open connection. */
     private val onAuthRequired: (message: String, atInitialize: Boolean) -> Unit = { _, _ -> },
+    /**
+     * The daemon refused the TUI identity sent with `initialize` (another daemon, or a new
+     * signing key). The owner drops it so [identity] returns null, and the handshake is
+     * retried without one: the daemon then hands out a fresh identity.
+     */
+    private val onIdentityRejected: () -> Unit = {},
 ) {
     private val _state = MutableStateFlow<ConnState>(ConnState.Idle)
     val state: StateFlow<ConnState> = _state.asStateFlow()
@@ -95,6 +101,8 @@ open class RpcClient(
     private val generation = AtomicLong(0)
     @Volatile private var handle: WsHandle? = null
     @Volatile private var initId: Long = -1
+    /** Whether the pending `initialize` carried a TUI identity the daemon may refuse. */
+    @Volatile private var initSentIdentity = false
     /** Ids of `initialize` requests sent on an already open socket (token renewal, revalidation). */
     private val reinitIds = ConcurrentHashMap.newKeySet<Long>()
     @Volatile private var running = false
@@ -170,9 +178,15 @@ open class RpcClient(
         val id = nextId.getAndIncrement()
         initId = id
         val ident = identity()
+        initSentIdentity = ident != null
         val params = InitializeParams(authToken = token().orEmpty(), tuiId = ident?.tuiId, tuiSig = ident?.tuiSig, authProvider = authProvider())
         h.send(encodeRequest(id, "initialize", ZdJson.encodeToJsonElement(InitializeParams.serializer(), params)))
     }
+
+    /** The daemon's refusal of the identity itself, not of the token: retried without it. */
+    private fun isIdentityRejection(inbound: Inbound.Failure) =
+        inbound.id == initId && initSentIdentity && inbound.error.code == RpcCodes.AUTH_REQUIRED &&
+            IDENTITY_REFUSALS.any { inbound.error.message.contains(it, ignoreCase = true) }
 
     private fun onFrame(gen: Long, line: String) {
         when (val inbound = decodeInbound(line) ?: return) {
@@ -195,6 +209,12 @@ open class RpcClient(
                 pending.remove(inbound.id)?.complete(inbound.result)
             }
             is Inbound.Failure -> {
+                if (isIdentityRejection(inbound)) {
+                    onIdentityRejected()
+                    handle?.close(1000, "identity refused")
+                    disconnected(gen, inbound.error.message)
+                    return
+                }
                 val atInitialize = inbound.id == initId || inbound.id in reinitIds
                 // Settle the request first: the callback may stop this client.
                 onFailure(gen, inbound)
@@ -309,6 +329,9 @@ open class RpcClient(
 
     companion object {
         private const val MIN_RETRY_MS = 750L
+
+        /** The daemon's `initialize` messages for a refused identity (AUTH_REQUIRED, like a bad token). */
+        private val IDENTITY_REFUSALS = listOf("Invalid TUI signature", "TUI signature required")
     }
 }
 

@@ -36,6 +36,13 @@ data class DaemonProfile(
     val isOidc: Boolean get() = authProvider.startsWith("oidc.")
 
     fun connectUrl(): String = wssUrl ?: "wss://$host:$wssPort/"
+
+    /**
+     * Which daemon this is, for the TUI identity it signed: its CA fingerprint, which survives
+     * unpairing and pairing again, or the URL when the CA cannot be read.
+     */
+    fun daemonKey(): String =
+        runCatching { "ca:" + pt.tiago.zerodroid.security.caFingerprint(caPem) }.getOrElse { "url:" + connectUrl() }
 }
 
 private val Context.profileDataStore by preferencesDataStore("zerodroid-profiles")
