@@ -134,7 +134,7 @@ fun Composer(
             .padding(horizontal = 12.dp, vertical = 8.dp)
             .background(ZcTokens.surface, shape)
             .border(1.dp, if (running) ZcTokens.accentStart.copy(alpha = 0.3f) else ZcTokens.hairlineStrong, shape)
-            .padding(start = 16.dp, end = 3.dp, top = 3.dp, bottom = 3.dp),
+            .padding(start = 16.dp, end = 6.dp, top = 3.dp, bottom = 3.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
         Box(
@@ -172,7 +172,7 @@ fun Composer(
         Spacer(Modifier.width(8.dp))
         val showStop = running && text.isBlank()
         val canSend = enabled && !loadingImages && imageError == null && (text.isNotBlank() || (images.isNotEmpty() && !running))
-        // The context ring adds 3dp around the 40dp button; the row padding drops from 6dp to 3dp so the composer keeps its height.
+        // The context ring adds 3dp around the 40dp button; top/bottom padding drops from 6dp to 3dp so the composer keeps its height.
         ContextRing(contextFraction, Modifier.size(46.dp)) {
         AnimatedContent(
             targetState = showStop,
