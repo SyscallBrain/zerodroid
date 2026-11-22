@@ -76,6 +76,23 @@ class SopRepositoryTest {
     }
 
     @Test
+    fun listAcceptsBareArrayOfFullSops() = runTest {
+        // Over RPC `sops/list` returns `to_result(Vec<Sop>)` (dispatch.rs handle_sops_list): a bare
+        // array of full definitions, unlike the HTTP twin's {"sops": [...]} envelope.
+        val rpc = FakeCaller().apply {
+            on("sops/list", """[{"name":"weather","description":"Rain","version":"1.0.0","steps":[{"number":1}],"location":"/x"}]""")
+        }
+        val r = SopRepository(rpc).list() as SopResult.Ok
+        assertEquals(listOf(pt.tiago.zerodroid.rpc.proto.SopSummaryDto("weather", "Rain", "1.0.0")), r.value)
+    }
+
+    @Test
+    fun listStillAcceptsEnvelope() = runTest {
+        val rpc = FakeCaller().apply { on("sops/list", """{"sops":[{"name":"a"}]}""") }
+        assertEquals(listOf("a"), (SopRepository(rpc).list() as SopResult.Ok).value.map { it.name })
+    }
+
+    @Test
     fun alreadyExistsSentence() {
         val e = RpcException(RpcError(RpcCodes.SOP_ALREADY_EXISTS, "SOP 'x' already exists"))
         assertEquals("A workflow with this name already exists", sopErrorText(e))

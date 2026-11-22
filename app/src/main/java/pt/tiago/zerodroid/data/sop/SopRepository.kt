@@ -39,7 +39,21 @@ data class WireEdit(val op: String, val from: Int, val to: Int, val role: String
  * both over remote WSS.
  */
 class SopRepository(private val rpc: RpcCaller) {
-    suspend fun list(): SopResult<List<SopSummaryDto>> = call("sops/list", null) { decode<SopListDto>(it).sops }
+    /**
+     * Over RPC `sops/list` answers a bare array of full definitions (dispatch.rs handle_sops_list);
+     * the HTTP twin wraps summaries in {"sops": [...]}. Both are accepted.
+     */
+    suspend fun list(): SopResult<List<SopSummaryDto>> = call("sops/list", null) { r ->
+        when (r) {
+            is kotlinx.serialization.json.JsonArray -> r.mapNotNull { e ->
+                val o = e as? JsonObject ?: return@mapNotNull null
+                fun str(k: String) = (o[k] as? JsonPrimitive)?.takeIf { it.isString }?.content
+                val name = str("name") ?: return@mapNotNull null
+                SopSummaryDto(name, str("description").orEmpty(), str("version").orEmpty())
+            }
+            else -> decode<SopListDto>(r).sops
+        }
+    }
 
     suspend fun get(name: String): SopResult<JsonObject> =
         call("sops/get", named(name), saving = false) { it as? JsonObject ?: JsonObject(emptyMap()) }
