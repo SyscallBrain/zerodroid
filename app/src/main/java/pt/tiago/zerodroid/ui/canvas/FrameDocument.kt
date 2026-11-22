@@ -6,9 +6,15 @@ package pt.tiago.zerodroid.ui.canvas
  * SVG gets a page sized for the phone, on [background] (a CSS colour).
  */
 fun frameDocument(contentType: String, content: String, background: String): String? = when (contentType) {
-    "html" -> if (content.contains("<html", ignoreCase = true)) content else page(content, background, "")
+    "html" -> if (isFullDocument(content)) content else page(content, background, "")
     "svg" -> page("<div style=\"display:flex;justify-content:center\">$content</div>", background, "svg{max-width:100%;height:auto}")
     else -> null
+}
+
+/** True when [content] starts as a whole HTML document (doctype or `<html>`), not a fragment. */
+fun isFullDocument(content: String): Boolean {
+    val head = content.trimStart().take(15).lowercase()
+    return head.startsWith("<!doctype") || head.startsWith("<html")
 }
 
 private fun page(body: String, background: String, extraCss: String) =

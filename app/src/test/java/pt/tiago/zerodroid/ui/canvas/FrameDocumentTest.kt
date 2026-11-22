@@ -29,4 +29,12 @@ class FrameDocumentTest {
         assertNull(frameDocument("markdown", "# x", "#000000"))
         assertNull(frameDocument("text", "x", "#000000"))
     }
+
+    @Test
+    fun fullDocumentDetection() {
+        assertTrue(isFullDocument("  <!DOCTYPE html><html></html>"))
+        assertTrue(isFullDocument("<html><body>x</body></html>"))
+        assertTrue(!isFullDocument("<p>see the <html> tag</p>"))
+        assertEquals("<p>see the <html> tag</p>", frameDocument("html", "<p>see the <html> tag</p>", "#000000")!!.substringAfter("<body>").substringBefore("</body>"))
+    }
 }

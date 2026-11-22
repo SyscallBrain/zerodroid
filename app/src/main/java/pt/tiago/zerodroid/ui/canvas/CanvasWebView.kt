@@ -20,12 +20,13 @@ import pt.tiago.zerodroid.ui.theme.ZcTokens
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun CanvasWebView(document: String, modifier: Modifier = Modifier) {
+fun CanvasWebView(document: String, modifier: Modifier = Modifier, light: Boolean = false) {
     AndroidView(
         modifier = modifier,
         factory = { context ->
             WebView(context).apply {
-                setBackgroundColor(ZcTokens.background.toArgb())
+                // A whole document the agent wrote without styles expects the browser's white page.
+                setBackgroundColor(if (light) android.graphics.Color.WHITE else ZcTokens.background.toArgb())
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
@@ -49,6 +50,15 @@ fun CanvasWebView(document: String, modifier: Modifier = Modifier) {
                             }
                         }
                         return true
+                    }
+
+                    // POST navigations (form.submit()) never reach shouldOverrideUrlLoading: stop any
+                    // page other than the frame itself and put the frame back.
+                    override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                        if (url != null && url != "about:blank") {
+                            view.stopLoading()
+                            (view.tag as? String)?.let { view.loadDataWithBaseURL(null, it, "text/html", "utf-8", null) }
+                        }
                     }
                 }
                 tag = document

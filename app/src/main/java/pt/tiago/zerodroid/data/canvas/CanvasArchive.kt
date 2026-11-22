@@ -17,6 +17,9 @@ import java.io.File
 import java.security.MessageDigest
 
 private const val MAX_FRAMES = 50
+/** Frame ids never to add again: deleted, evicted by [MAX_FRAMES] or failed. Kept newest last. */
+private const val TOMBSTONES = "deleted.ids"
+private const val MAX_TOMBSTONES = 20_000
 
 /** Receives canvas frames seen in chats. */
 fun interface CanvasSink {
@@ -67,9 +70,20 @@ class CanvasArchive(
     /** frame id ("session/toolCall") → canvas id, for the bound daemon. */
     @Volatile private var index: Map<String, String> = emptyMap()
     private val summaries = mutableMapOf<String, CanvasSummary>()
+    private val tombstones = LinkedHashSet<String>()
 
     init {
-        scope.launch { for (op in queue) op() }
+        // One failed write (disk full, unreadable dir) must neither crash the app nor stop later captures.
+        scope.launch {
+            for (op in queue) {
+                try {
+                    op()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                }
+            }
+        }
     }
 
     suspend fun bind(daemonKey: String) = io {
@@ -77,6 +91,8 @@ class CanvasArchive(
         if (d == dir) return@io
         dir = d
         summaries.clear()
+        tombstones.clear()
+        runCatching { File(d, TOMBSTONES).takeIf { it.isFile }?.readLines()?.filterTo(tombstones) { it.isNotBlank() } }
         val idx = mutableMapOf<String, String>()
         d.listFiles { f -> f.isFile && f.name.endsWith(".json") }.orEmpty().forEach { f ->
             val c = read(f) ?: return@forEach
@@ -110,12 +126,14 @@ class CanvasArchive(
 
     suspend fun rename(canvasId: String, name: String) = io {
         val c = load(canvasId) ?: return@io
-        save(c.copy(name = name.trim().ifEmpty { canvasId }))
+        runCatching { save(c.copy(name = name.trim().ifEmpty { canvasId })) }
         publish()
     }
 
+    /** Removes the canvas; its frames are not added again when their chat is reloaded. */
     suspend fun delete(canvasId: String) = io {
         val d = dir ?: return@io
+        bury(index.filterValues { it == canvasId }.keys)
         File(d, fileName(canvasId)).delete()
         summaries.remove(canvasId)
         index = index.filterValues { it != canvasId }
@@ -127,7 +145,7 @@ class CanvasArchive(
         val id = frameId(sessionId, capture.toolCallId)
         when (capture) {
             is CanvasCapture.Render -> {
-                if (id in index) return
+                if (id in index || id in tombstones) return
                 val r = capture.render
                 val old = load(r.canvasId) ?: CanvasFile(r.canvasId, r.canvasId, emptyList())
                 val frame = StoredFrame(id, r.contentType, r.content, clock(), sessionId, agentAlias, capture.toolCallId)
@@ -135,8 +153,10 @@ class CanvasArchive(
                 val dropped = old.frames.map { it.id }.toSet() - frames.map { it.id }.toSet()
                 save(old.copy(frames = frames))
                 index = index - dropped + (id to r.canvasId)
+                bury(dropped)
             }
             is CanvasCapture.Failed -> {
+                bury(setOf(id))
                 val canvasId = index[id] ?: return
                 val old = load(canvasId) ?: return
                 val frames = old.frames.filter { it.id != id }
@@ -150,6 +170,21 @@ class CanvasArchive(
             }
         }
         publish()
+    }
+
+    private fun bury(ids: Collection<String>) {
+        if (ids.isEmpty() || !tombstones.addAll(ids)) return
+        while (tombstones.size > MAX_TOMBSTONES) tombstones.remove(tombstones.first())
+        val d = dir ?: return
+        runCatching {
+            d.mkdirs()
+            val tmp = File(d, "$TOMBSTONES.tmp")
+            tmp.writeText(tombstones.joinToString("\n"))
+            if (!tmp.renameTo(File(d, TOMBSTONES))) {
+                File(d, TOMBSTONES).delete()
+                tmp.renameTo(File(d, TOMBSTONES))
+            }
+        }
     }
 
     private fun load(canvasId: String): CanvasFile? = dir?.let { read(File(it, fileName(canvasId))) }

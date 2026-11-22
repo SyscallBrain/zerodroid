@@ -131,7 +131,7 @@ fun CanvasViewScreen(
 private fun FrameContent(f: StoredFrame) {
     val doc = frameDocument(f.contentType, f.content, BACKGROUND_CSS)
     when {
-        doc != null -> CanvasWebView(doc, Modifier.fillMaxSize())
+        doc != null -> CanvasWebView(doc, Modifier.fillMaxSize(), light = f.contentType == "html" && isFullDocument(f.content))
         f.contentType == "markdown" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             MarkdownText(f.content)
         }

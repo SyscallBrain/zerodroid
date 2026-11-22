@@ -102,4 +102,52 @@ class CanvasArchiveTest {
         assertNull(a.locate("s", "a1"))
         assertTrue(a.canvases.value.isEmpty())
     }
+
+    @Test
+    fun deletedCanvasStaysDeletedAfterRecapture() = runTest(UnconfinedTestDispatcher()) {
+        val a = archive().apply { bind("ca:A") }
+        a.render("a1", "c")
+        a.awaitIdle()
+        a.delete("c")
+        a.render("a1", "c")
+        a.awaitIdle()
+        assertTrue(a.canvases.value.isEmpty())
+        val b = archive().apply { bind("ca:A") }
+        b.render("a1", "c")
+        b.awaitIdle()
+        assertTrue(b.canvases.value.isEmpty())
+    }
+
+    @Test
+    fun evictedFramesAreNotReAdded() = runTest(UnconfinedTestDispatcher()) {
+        val a = archive().apply { bind("ca:A") }
+        (1..51).forEach { a.render("a$it", "c", "$it") }
+        a.awaitIdle()
+        a.render("a1", "c", "1")
+        a.awaitIdle()
+        val frames = a.frames("c")
+        assertEquals(50, frames.size)
+        assertEquals("51", frames.last().content)
+    }
+
+    @Test
+    fun failedRenderIsNotReAddedOnReload() = runTest(UnconfinedTestDispatcher()) {
+        val a = archive().apply { bind("ca:A") }
+        a.render("a1", "c")
+        a.onCapture("s", "main", CanvasCapture.Failed("a1"))
+        a.render("a1", "c")
+        a.awaitIdle()
+        assertTrue(a.canvases.value.isEmpty())
+    }
+
+    @Test
+    fun writeErrorDoesNotStopTheArchive() = runTest(UnconfinedTestDispatcher()) {
+        val root = tmp.newFile("not-a-dir")
+        val a = CanvasArchive(root, backgroundScope, clock = { ++tick }).apply { bind("ca:A") }
+        a.render("a1", "c")
+        a.awaitIdle()
+        a.rename("c", "x")
+        a.delete("c")
+        assertTrue(a.canvases.value.isEmpty())
+    }
 }
