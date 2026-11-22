@@ -179,4 +179,46 @@ class RpcClientTest {
         assertEquals(listOf("Credential expired" to true), seen)
         client.stop()
     }
+
+    @Test
+    fun reinitializeRefreshesTheTokenOnTheOpenSocket() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        var token = "old"
+        val client = RpcClient(transport, "wss://x/", { token }, this, authProvider = { "oidc.corp" })
+        client.start()
+        val initId = ZdJson.parseToJsonElement(transport.sent.first()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
+        transport.listener!!.onText(initReply(initId))
+        val ready = client.state.value
+        token = "new"
+        var info: InitializeResult? = null
+        launch { info = client.reinitialize() }
+        val frame = ZdJson.parseToJsonElement(transport.sent.last()).jsonObject
+        assertEquals("initialize", frame["method"]!!.jsonPrimitive.content)
+        assertEquals("new", frame["params"]!!.jsonObject["auth_token"]!!.jsonPrimitive.content)
+        assertEquals("oidc.corp", frame["params"]!!.jsonObject["auth_provider"]!!.jsonPrimitive.content)
+        transport.listener!!.onText(initReply(frame["id"]!!.jsonPrimitive.content.toLong()))
+        advanceTimeBy(1)
+        assertEquals("0.9.0", info!!.serverVersion)
+        assertEquals(1, transport.opens)
+        assertTrue("state must not flip, or chats would reload", client.state.value === ready)
+        client.stop()
+    }
+
+    @Test
+    fun refusedReinitializeIsReportedAsAnInitializeRefusal() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val seen = mutableListOf<Pair<String, Boolean>>()
+        val client = RpcClient(transport, "wss://x/", { "tok" }, this, onAuthRequired = { m, atInit -> seen.add(m to atInit) })
+        client.start()
+        val initId = ZdJson.parseToJsonElement(transport.sent.first()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
+        transport.listener!!.onText(initReply(initId))
+        var thrown: Throwable? = null
+        launch { try { client.reinitialize() } catch (e: Throwable) { thrown = e } }
+        val id = ZdJson.parseToJsonElement(transport.sent.last()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
+        transport.error(id, -32010, "Credential rejected")
+        advanceTimeBy(1)
+        assertEquals(listOf("Credential rejected" to true), seen)
+        assertTrue(thrown is RpcException)
+        client.stop()
+    }
 }

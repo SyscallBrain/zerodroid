@@ -95,6 +95,8 @@ open class RpcClient(
     private val generation = AtomicLong(0)
     @Volatile private var handle: WsHandle? = null
     @Volatile private var initId: Long = -1
+    /** Ids of `initialize` requests sent on an already open socket (token renewal, revalidation). */
+    private val reinitIds = ConcurrentHashMap.newKeySet<Long>()
     @Volatile private var running = false
     @Volatile private var failures = 0
     private var retryJob: Job? = null
@@ -193,7 +195,7 @@ open class RpcClient(
                 pending.remove(inbound.id)?.complete(inbound.result)
             }
             is Inbound.Failure -> {
-                val atInitialize = inbound.id == initId
+                val atInitialize = inbound.id == initId || inbound.id in reinitIds
                 // Settle the request first: the callback may stop this client.
                 onFailure(gen, inbound)
                 if (inbound.error.code == RpcCodes.AUTH_REQUIRED) onAuthRequired(inbound.error.message, atInitialize)
@@ -270,6 +272,38 @@ open class RpcClient(
             return decoded
         } finally {
             pending.remove(id)
+        }
+    }
+
+    /**
+     * Sends `initialize` again on the open socket with the current [token]. The daemon re-verifies
+     * the credential and keeps the connection, so running turns are not cancelled (closing the socket
+     * cancels them). [state] is left as is: nothing needs reloading.
+     */
+    suspend fun reinitialize(timeoutMs: Long = 20_000): InitializeResult {
+        if (_state.value !is ConnState.Ready) throw NotConnectedException()
+        val h = handle ?: throw NotConnectedException()
+        val id = nextId.getAndIncrement()
+        val ident = identity()
+        val params = InitializeParams(authToken = token().orEmpty(), tuiId = ident?.tuiId, tuiSig = ident?.tuiSig, authProvider = authProvider())
+        val deferred = CompletableDeferred<JsonElement>()
+        pending[id] = deferred
+        reinitIds.add(id)
+        try {
+            if (!h.send(encodeRequest(id, "initialize", ZdJson.encodeToJsonElement(InitializeParams.serializer(), params)))) {
+                throw NotConnectedException()
+            }
+            val result = try {
+                withTimeout(timeoutMs) { deferred.await() }
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                throw TimeoutException("The daemon did not answer initialize in time")
+            }
+            val info = ZdJson.decodeFromJsonElement(InitializeResult.serializer(), result)
+            if (info.tuiId != null && info.tuiSig != null) onIdentity(ClientIdentity(info.tuiId, info.tuiSig))
+            return info
+        } finally {
+            pending.remove(id)
+            reinitIds.remove(id)
         }
     }
 

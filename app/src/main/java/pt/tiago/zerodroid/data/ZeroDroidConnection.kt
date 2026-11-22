@@ -96,6 +96,8 @@ object ZeroDroidConnection {
     val signIn: StateFlow<SignInStatus> = _signIn.asStateFlow()
     private var expiryJob: Job? = null
     private val gate = SignInGate { System.currentTimeMillis() / 1000 }
+    /** The bearer the live client presents; replaced in place when an OIDC sign-in is renewed. */
+    @Volatile private var currentToken: String? = null
 
     private val _renewRequested = MutableStateFlow(false)
     /** The UI should open the OIDC renew sheet (banner, Config → Phone or a notification asked). */
@@ -203,10 +205,26 @@ object ZeroDroidConnection {
         store.save(updated)
         vault.store(token.accessToken)
         gate.onRenewed()
+        currentToken = token.accessToken
         _phase.value = AppPhase.Paired(updated)
         scheduleExpiry(updated)
-        // Quiet swap: the daemon keeps the session (same tui_id), so running turns and pending
-        // approvals are not marked lost; the new connection reloads them on Ready.
+        // A new certificate needs a new TLS handshake; otherwise renew on the open socket, because
+        // closing it makes the daemon cancel running turns.
+        if (newCert == null && revalidateInPlace()) return
+        reconnectQuietly()
+    }
+
+    /** `initialize` again on the live socket with [currentToken]; false when that was not possible. */
+    private suspend fun revalidateInPlace(): Boolean {
+        val c = _client.value ?: return false
+        if (_state.value !is ConnState.Ready) return false
+        return runCatching { c.reinitialize() }
+            .onFailure { log("conn", "in-place initialize failed: ${it.javaClass.simpleName}: ${it.message}") }
+            .isSuccess
+    }
+
+    /** Last resort: the daemon keeps the session (same tui_id), so nothing is marked lost here. */
+    private fun reconnectQuietly() {
         stopClient(quiet = true)
         ensureStarted()
     }
@@ -230,16 +248,14 @@ object ZeroDroidConnection {
     }
 
     /** An AUTH_REQUIRED from [from]: only the current client of an OIDC profile can expire the sign-in. */
-    private fun onRefused(from: RpcClient?, atInitialize: Boolean) {
+    private suspend fun onRefused(from: RpcClient?, atInitialize: Boolean) {
         val profile = (_phase.value as? AppPhase.Paired)?.profile ?: return
         when (gate.onAuthRequired(profile, fromCurrentClient = from != null && _client.value === from, atInitialize = atInitialize)) {
             AuthAction.Ignore -> Unit
             AuthAction.Expire -> expire()
             AuthAction.Reinitialize -> {
-                log("conn", "daemon asked to revalidate the OIDC sign-in; reconnecting with the same token")
-                // Same quiet swap as a renew: the session survives, nothing is marked lost.
-                stopClient(quiet = true)
-                ensureStarted()
+                log("conn", "daemon asked to revalidate the OIDC sign-in; re-initializing with the same token")
+                if (!revalidateInPlace() && gate.canConnect(profile)) reconnectQuietly()
             }
         }
     }
@@ -313,6 +329,7 @@ object ZeroDroidConnection {
                     _phase.value = AppPhase.Unpaired("The saved pairing is incomplete. Pair this phone again.")
                     return@withLock
                 }
+                currentToken = token
                 val rpcClient = Perf.span("conn.buildClient") { runCatching { buildClient(profile, token) } }.getOrElse {
                     log("conn", "could not build TLS client: ${it.javaClass.simpleName}: ${it.message}")
                     _state.value = ConnState.AuthFailed("This phone's certificate could not be loaded. Unpair and pair again.")
@@ -347,7 +364,7 @@ object ZeroDroidConnection {
         return RpcClient(
             transport = transport,
             url = profile.connectUrl(),
-            token = { token },
+            token = { if (probe) token else currentToken ?: token },
             scope = scope,
             identity = { if (probe) null else identity },
             onIdentity = { id ->
@@ -466,6 +483,7 @@ object ZeroDroidConnection {
         expiryJob?.cancel()
         gate.onRenewed()
         _signIn.value = SignInStatus.NotOidc
+        currentToken = null
         runCatching { store.profiles.first().forEach { store.remove(it.id) } }
         runCatching { vault.clear() }
         runCatching { KeystoreIdentity().delete() }
