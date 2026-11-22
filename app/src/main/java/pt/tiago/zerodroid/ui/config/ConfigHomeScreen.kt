@@ -226,7 +226,7 @@ fun ConfigHomeScreen(active: Boolean = true, onNavigate: (ConfigRoute) -> Unit, 
                 }
             }
             item("phone-h") { SectionHeader("This phone", Modifier.padding(top = 12.dp)) }
-            item("phone") { SectionRow(ZcIcons.Terminal, "ZeroDroid & pairing", "Daemon, background, diagnostics, unpair", false) { onNavigate(ConfigRoute.Phone) } }
+            item("phone") { SectionRow(ZcIcons.Terminal, "ZeroDroid & pairing", "Daemon, Home, background, diagnostics, unpair", false) { onNavigate(ConfigRoute.Phone) } }
         }
     }
 }
