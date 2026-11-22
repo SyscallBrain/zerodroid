@@ -44,9 +44,12 @@ import pt.tiago.zerodroid.ui.theme.ZcTokens
 import pt.tiago.zerodroid.ui.theme.ZcType
 
 @Composable
-fun CanvasListScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
+fun CanvasListScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onlySession: String? = null) {
     val archive = ZeroDroidConnection.canvas
-    val canvases by archive.canvases.collectAsStateWithLifecycle()
+    val all by archive.canvases.collectAsStateWithLifecycle()
+    val canvases = remember(all, onlySession) {
+        if (onlySession == null) all else archive.canvasesFor(onlySession).toSet().let { ids -> all.filter { it.canvasId in ids } }
+    }
     val scope = rememberCoroutineScope()
     var menuFor by remember { mutableStateOf<CanvasSummary?>(null) }
     var renaming by remember { mutableStateOf<CanvasSummary?>(null) }
@@ -54,7 +57,7 @@ fun CanvasListScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
 
     Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
         Column(Modifier.fillMaxSize()) {
-            ZcTopBar("Canvas", navigation = { ZcIconButton(ZcIcons.Back, "Back", onClick = onBack) })
+            ZcTopBar(if (onlySession == null) "Canvas" else "Canvas from this chat", navigation = { ZcIconButton(ZcIcons.Back, "Back", onClick = onBack) })
             if (canvases.isEmpty()) {
                 EmptyState(
                     ZcIcons.Image,

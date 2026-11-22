@@ -183,4 +183,19 @@ class CanvasArchiveTest {
         a.bind("ca:old")
         assertTrue(a.canvases.value.isEmpty())
     }
+
+    @Test
+    fun canvasesOfOneChatNewestFirst() = runTest(UnconfinedTestDispatcher()) {
+        val a = archive().apply { bind("ca:A") }
+        a.render("a1", "old", session = "s1")
+        a.render("a2", "other", session = "s2")
+        a.render("a3", "new", session = "s1")
+        a.render("a4", "old", session = "s1")
+        a.awaitIdle()
+        assertEquals(listOf("old", "new"), a.canvasesFor("s1"))
+        assertEquals(listOf("other"), a.canvasesFor("s2"))
+        assertTrue(a.canvasesFor("s3").isEmpty())
+        a.delete("old")
+        assertEquals(listOf("new"), a.canvasesFor("s1"))
+    }
 }

@@ -160,6 +160,13 @@ class CanvasArchive(
         return index[id]?.let { it to id }
     }
 
+    /** Canvases with a frame drawn in [sessionId], most recently updated first. */
+    fun canvasesFor(sessionId: String): List<String> {
+        val prefix = "$sessionId/"
+        val ids = index.entries.filter { it.key.startsWith(prefix) }.mapTo(HashSet()) { it.value }
+        return canvases.value.map { it.canvasId }.filter { it in ids }
+    }
+
     suspend fun rename(canvasId: String, name: String) = io {
         val c = load(canvasId) ?: return@io
         runCatching { save(c.copy(name = name.trim().ifEmpty { canvasId })) }

@@ -61,13 +61,19 @@ memory all stay on the daemon.
   is off, the app can turn it on for you, and the Home card can be hidden if
   you don't use SOPs.
 - **Canvas**: when an agent draws something with its `canvas` tool (a chart,
-  a table, a diagram) in a chat started from the phone, the app keeps a copy,
-  so you can open it again later, even after the daemon restarts (the daemon
-  keeps canvases in memory only). HTML and SVG frames open in a sandboxed
-  view that can run scripts and load chart libraries but cannot reach the
-  app or your files, and Markdown and text are shown natively. Each canvas
-  keeps its last 50 frames. Canvases drawn from other channels (Discord,
-  Telegram, the web dashboard) are not captured.
+  a table, a diagram) in a chat or code session on the phone, the app keeps a
+  copy, so you can open it again later, even after the daemon restarts (the
+  daemon keeps canvases in memory only). Open them from the Home card, from
+  the canvas tool call while it is on screen, or from the canvas icon at the
+  top of the chat that drew them. HTML and SVG frames open in a sandboxed view
+  that can run scripts and load chart libraries but cannot reach the app or
+  your files; pages too wide for the phone are zoomed out to fit, and you can
+  pinch to zoom. Markdown and text are shown natively. Each canvas keeps its
+  last 50 frames. A chat's history comes back from the daemon as text only,
+  so a frame is saved only if the app sees it live (open, or in the
+  background while the turn runs); code sessions are also picked up from
+  their history. Canvases drawn from other channels (Discord, Telegram, the
+  web dashboard) are not captured.
 - **Approvals**: when an agent asks for permission, approve or deny from the
   Inbox or straight from the notification. Nothing is ever approved without
   your tap.

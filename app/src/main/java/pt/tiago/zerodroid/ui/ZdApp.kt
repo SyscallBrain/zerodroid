@@ -308,6 +308,10 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                         onOpenChat = openChat,
                         onOpenAgent = { agentAlias = it },
                         onOpenCanvas = { c, f -> canvasRoute = pt.tiago.zerodroid.ui.canvas.CanvasRoute.View(c, f, fromChat = true) },
+                        onOpenChatCanvases = { sid, ids ->
+                            canvasRoute = ids.singleOrNull()?.let { pt.tiago.zerodroid.ui.canvas.CanvasRoute.View(it, fromChat = true) }
+                                ?: pt.tiago.zerodroid.ui.canvas.CanvasRoute.ChatList(sid)
+                        },
                     )
                 }
             } else {

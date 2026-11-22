@@ -84,6 +84,8 @@ fun ChatScreen(
     onOpenChat: (String, String) -> Unit = { _, _ -> },
     onOpenAgent: (String) -> Unit = {},
     onOpenCanvas: (canvasId: String, frameId: String) -> Unit = { _, _ -> },
+    /** The canvases drawn in this chat (ids, newest first): the top bar's shortcut to them. */
+    onOpenChatCanvases: (sessionId: String, canvasIds: List<String>) -> Unit = { _, _ -> },
 ) {
     val s by viewModel.state.collectAsStateWithLifecycle()
     // Read so canvas chips get their Open button once the archive has written the frame.
@@ -129,7 +131,15 @@ fun ChatScreen(
             navigation = { ZcIconButton(ZcIcons.Back, "Back", onClick = onBack) },
             leading = { Avatar(viewModel.agentAlias, size = 34.dp) },
             subtitle = { LiveLine(s.turnRunning, s.items.lastOrNull(), conn) },
-            actions = { ZcIconButton(ZcIcons.More, "Session") { sheet = true } },
+            actions = {
+                // Chat history comes back from the daemon as text only, so after a reload the canvas
+                // tool chips are gone; this shortcut works from the archive instead.
+                val chatCanvases = remember(canvases) { pt.tiago.zerodroid.data.ZeroDroidConnection.canvas.canvasesFor(viewModel.sessionId) }
+                if (chatCanvases.isNotEmpty()) {
+                    ZcIconButton(ZcIcons.Image, "Canvas from this chat") { onOpenChatCanvases(viewModel.sessionId, chatCanvases) }
+                }
+                ZcIconButton(ZcIcons.More, "Session") { sheet = true }
+            },
         )
         HorizontalDivider(color = ZcTokens.hairline)
         ConnectionBanner(
