@@ -135,12 +135,16 @@ private fun PairedShell(profile: pt.tiago.zerodroid.data.DaemonProfile, debug: B
                 ),
             ) { MainShell(debug, externalOpen, onExternalOpenConsumed) }
         }
+        // Outside the `if`: it must survive the sheet closing, or every opening would be generation 0.
+        var generation by rememberSaveable { mutableIntStateOf(0) }
         if (renewOpen && profile.isOidc) {
             val context = LocalContext.current
+            // The profile as it was when the sheet opened. A successful renew updates the live profile
+            // before the sheet closes; keying on the live one would spawn a second renew.
+            val opened = remember { profile }
             // A fresh view model per opening: a previous grant's state never leaks into the next one.
-            var generation by rememberSaveable { mutableIntStateOf(0) }
-            val vm: pt.tiago.zerodroid.ui.onboarding.OidcSignInViewModel = viewModel(key = pt.tiago.zerodroid.ui.onboarding.renewViewModelKey(profile, generation)) {
-                pt.tiago.zerodroid.ui.onboarding.oidcSignInViewModel(context, pt.tiago.zerodroid.ui.onboarding.OidcMode.Renew(profile))
+            val vm: pt.tiago.zerodroid.ui.onboarding.OidcSignInViewModel = viewModel(key = pt.tiago.zerodroid.ui.onboarding.renewViewModelKey(opened, generation)) {
+                pt.tiago.zerodroid.ui.onboarding.oidcSignInViewModel(context, pt.tiago.zerodroid.ui.onboarding.OidcMode.Renew(opened))
             }
             val close = { vm.cancel(); generation++; ZeroDroidConnection.renewHandled() }
             LaunchedEffect(vm) { vm.renew() }
