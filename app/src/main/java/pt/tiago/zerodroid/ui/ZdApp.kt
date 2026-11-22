@@ -190,6 +190,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
     var gallery by rememberSaveable { mutableStateOf(false) }
     var agentAlias by rememberSaveable { mutableStateOf<String?>(null) }
     var configJump by remember { mutableStateOf<pt.tiago.zerodroid.ui.config.ConfigRoute?>(null) }
+    var sopStack by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.sop.SopStackSaver) { mutableStateOf(emptyList<pt.tiago.zerodroid.ui.sop.SopRoute>()) }
     var notifRationale by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -226,6 +227,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
     val tabNames = listOf("home", "chats", "code", "inbox", "config")
     val label = when {
         gallery -> "gallery"
+        sopStack.isNotEmpty() -> "workflows"
         agentAlias != null -> "agent"
         chatId != null -> "chat"
         else -> tabNames.getOrElse(tab) { "config" }
@@ -257,6 +259,8 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                         viewModel<HomeViewModel>(), active = active, onOpenInbox = { pt.tiago.zerodroid.Perf.navigate("inbox"); tab = TAB_INBOX },
                         onBrandLongPress = { if (debug) gallery = true },
                         onOpenAgent = { pt.tiago.zerodroid.Perf.navigate("agent"); agentAlias = it },
+                        onOpenWorkflows = { pt.tiago.zerodroid.Perf.navigate("workflows"); sopStack = listOf(pt.tiago.zerodroid.ui.sop.SopRoute.List) },
+                        workflowsWaiting = gateCount,
                     )
                     1 -> ChatsScreen(viewModel<ChatsViewModel>(), active = active, onOpen = openChat)
                     TAB_CODE -> CodeScreen(viewModel<CodeViewModel>(), active = active, onOpen = openChat)
@@ -320,6 +324,19 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                 },
             )
         }
+    }
+
+    if (sopStack.isNotEmpty()) {
+        pt.tiago.zerodroid.ui.sop.SopHost(
+            stack = sopStack,
+            onStack = { sopStack = it },
+            onEnableEngine = {
+                sopStack = emptyList()
+                chatId = null
+                tab = TAB_CONFIG
+                configJump = pt.tiago.zerodroid.ui.config.ConfigRoute.Field("sop", "", "sop.sops_dir")
+            },
+        )
     }
 
     if (gallery && debug) {
