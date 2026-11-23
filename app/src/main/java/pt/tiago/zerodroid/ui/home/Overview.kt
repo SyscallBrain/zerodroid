@@ -3,6 +3,8 @@ package pt.tiago.zerodroid.ui.home
 import pt.tiago.zerodroid.rpc.proto.ComponentHealth
 import pt.tiago.zerodroid.rpc.proto.CronJob
 import pt.tiago.zerodroid.rpc.proto.ProcessStats
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -34,21 +36,21 @@ fun memoryMetric(p: ProcessStats?): MetricText {
 }
 
 /**
- * An idle daemon on a phone sits well under 1 % of all cores; rounding that to "0%" reads as
- * "not measured". One decimal below 10 %, and "<0.1%" for any non-zero trace.
+ * One decimal, as zerocode prints it (Rust `{:.1}`): rounded from the exact binary value with
+ * ties to even, which `String.format` does not do (it says "1.7" for 1.65, Rust says "1.6").
  */
-internal fun cpuText(pct: Double): String = when {
-    pct <= 0.0 -> "0%"
-    pct < 0.1 -> "<0.1%"
-    pct < 9.95 -> "%.1f%%".format(Locale.ENGLISH, pct)
-    else -> "${pct.roundToInt()}%"
-}
+internal fun cpuText(pct: Double): String =
+    BigDecimal(pct).setScale(1, RoundingMode.HALF_EVEN).toPlainString() + "%"
 
-/** `cpu_percent` is summed across cores; normalise to one 0..100 figure. */
+/**
+ * `cpu_percent` is summed across cores (0..100 x cores, like `top`). Shown as is, so it reads
+ * the same as zerocode next to it; only the bar is normalised to the share of all cores.
+ */
 fun cpuMetric(p: ProcessStats?): MetricText {
     val raw = p?.cpuPercent ?: return MetricText(null)
-    val pct = (raw / maxOf(p.numCpus, 1)).coerceIn(0.0, 100.0)
-    return MetricText(cpuText(pct), if (p.numCpus > 0) "${p.numCpus} cores" else null, (pct / 100).toFloat())
+    val cores = p.numCpus
+    val fraction = if (cores > 0) (raw / (100.0 * cores)).coerceIn(0.0, 1.0).toFloat() else null
+    return MetricText(cpuText(raw), if (cores > 0) "$cores cores" else null, fraction)
 }
 
 enum class Health { Ok, Warn, Error, Unknown }
