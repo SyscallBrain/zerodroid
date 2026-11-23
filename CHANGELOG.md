@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-23
+
+### Fixed
+
+- Chat: selecting text across inline code (the blue `code` spans) now shows
+  the selection; the span's opaque background used to paint over it. The
+  colours are unchanged.
+- Config → ZeroDroid & pairing → Home: the four switches have room between
+  them, so a two-line caption no longer touches the next row or the switch.
+  They are now named by what they show (Workflows, Canvas, Automation,
+  Doctor) instead of "Show … card".
+
 ## [0.9.1] - 2026-11-23
 
 ### Added
