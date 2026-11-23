@@ -82,7 +82,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.21")
 
     // Compose BOM — brings ui, material3, foundation, activity-compose
-    implementation(platform("androidx.compose:compose-bom:2026.09.00"))
+    implementation(platform("androidx.compose:compose-bom:2026.11.01"))
     implementation("androidx.activity:activity-compose")
     implementation("androidx.compose.ui:ui-android")
     implementation("androidx.compose.material3:material3-android")
