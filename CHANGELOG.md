@@ -6,6 +6,38 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-23
+
+### Added
+
+- Doctor: run ZeroClaw's doctor from the phone and read its findings grouped
+  by category, filtered by severity. A finding about a channel or a model,
+  TTS or transcription provider has a Fix button that opens that entry in
+  Config, and Back walks up through the section it landed in. Home shows the
+  last run (the doctor never runs on its own) and its shortcut can be hidden.
+
+### Changed
+
+- Home: Automation, Workflows, Canvas and Doctor are one list of shortcuts
+  instead of four full-width cards, with the status pill on the right and
+  whatever needs a look (red first, then amber) at the top.
+- Home: the memory, CPU, uptime and sessions tiles in each row are the same
+  height, and the memory and CPU bars sit on the same line.
+- Home: with pinned agents, three other agents are listed before "See all"
+  instead of six.
+- The CPU tile shows one decimal under 10 % and "<0.1%" for a trace load, so
+  an idle daemon no longer reads as 0 %.
+
+### Fixed
+
+- Up next: a long job name no longer runs into its time.
+
+### Daemon
+
+- In Termux on a phone without root, ZeroClaw cannot read `/proc/stat` and
+  reports 0 % CPU and no core count. The `zerodroid/android-process-cpu`
+  patch (included in `android-master-zerodroid`) fixes it; see the README.
+
 ## [0.9.0] - 2026-11-22
 
 ### Added
