@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-23
+
+### Added
+
+- File edits as a diff: when an agent edits or writes a file (`file_edit`,
+  `file_write`), the tool call opens with the file's path, the +/− line
+  counts and a line diff, removed lines in red and added lines in green,
+  with three lines of context and longer unchanged runs folded. A file
+  written from scratch shows every line as added. The raw arguments are
+  still there behind "Show arguments". Works in Code and in chats, live and
+  in reopened history.
+
 ## [0.9.2] - 2026-11-23
 
 ### Fixed

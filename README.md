@@ -51,6 +51,9 @@ memory all stay on the daemon.
   delete chats, search them, and see or change the model in use.
 - **Code**: sessions rooted in a folder on the daemon's machine, like
   zerocode. Pick the folder with a browser, or work in the agent's workspace.
+  When the agent edits a file, tap the tool call to see the change as a
+  diff: removed lines in red, added lines in green, unchanged ones folded,
+  with the raw arguments one tap away. This works in chats too.
   Chats and code sessions survive a daemon restart only with
   [the ZeroClaw patch](#keeping-your-sessions-the-zeroclaw-patch).
 - **Workflows**: build and run the daemon's SOPs (step-by-step procedures)
@@ -158,6 +161,13 @@ memory all stay on the daemon.
 | Scheduled jobs | A shell job | An agent job with delivery |
 | ![The scheduler settings sheet](docs/screenshots/automation-scheduler.jpg) | | |
 | Scheduler settings | | |
+
+### File edits
+
+| | | |
+|:-:|:-:|:-:|
+| ![An agent's file_edit shown as a diff: one line removed in red, one added in green, with the file name and +1 -1](docs/screenshots/code-edit-diff.jpg) | ![A new file written by the agent, every line added in green](docs/screenshots/code-file-write.jpg) | |
+| An edit as a diff | A new file | |
 
 ### Doctor
 
