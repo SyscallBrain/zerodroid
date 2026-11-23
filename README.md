@@ -159,6 +159,13 @@ memory all stay on the daemon.
 | ![The scheduler settings sheet](docs/screenshots/automation-scheduler.jpg) | | |
 | Scheduler settings | | |
 
+### Doctor
+
+| | | |
+|:-:|:-:|:-:|
+| ![Doctor results: one error, two warnings and 151 checks OK, with Fix buttons on the config findings](docs/screenshots/doctor.jpg) | | |
+| Findings with Fix | | |
+
 ## Install
 
 You need Android 10 or newer and a ZeroClaw daemon, version 0.9.0 or newer,
@@ -231,8 +238,8 @@ runs, and you can run a job now, edit its name, schedule and command, and
 delete it. Anything that needs the patch is refused with a message saying
 the daemon needs updating, and the app never saves something other than what
 you asked for. If you'd rather not patch the daemon, simply don't use
-Automation, and hide its card from Home in Config → ZeroDroid & pairing →
-Home → Show Automation card.
+Automation, and hide it from Home in Config → ZeroDroid & pairing →
+Home → Automation.
 
 ### CPU reading in Termux: the process-stats patch
 

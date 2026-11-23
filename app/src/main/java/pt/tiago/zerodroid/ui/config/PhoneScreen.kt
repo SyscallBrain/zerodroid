@@ -126,53 +126,22 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
             }
 
             SectionHeader("Home")
-            ZcCard(Modifier.fillMaxWidth()) {
-                val toggle = { on: Boolean -> scope.launch { ZeroDroidConnection.screen.setShowWorkflowsTile(on) }; Unit }
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { toggle(!showWorkflows) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Show Workflows card", style = ZcType.body)
-                        Text("Off hides it from Home. Approvals still reach the Inbox.", style = ZcType.caption)
-                    }
-                    ZcSwitch(showWorkflows, toggle)
+            // The section is "Home", so each row names only what it shows; the caption says what Off does.
+            ZcCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)) {
+                HomeSwitchRow("Workflows", "Off hides it from Home. Approvals still reach the Inbox.", showWorkflows) {
+                    scope.launch { ZeroDroidConnection.screen.setShowWorkflowsTile(it) }
                 }
                 Divider()
-                val toggleCanvas = { on: Boolean -> scope.launch { ZeroDroidConnection.screen.setShowCanvasTile(on) }; Unit }
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { toggleCanvas(!showCanvas) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Show Canvas card", style = ZcType.body)
-                        Text("Off hides it from Home. Canvases are still saved.", style = ZcType.caption)
-                    }
-                    ZcSwitch(showCanvas, toggleCanvas)
+                HomeSwitchRow("Canvas", "Off hides it from Home. Canvases are still saved.", showCanvas) {
+                    scope.launch { ZeroDroidConnection.screen.setShowCanvasTile(it) }
                 }
                 Divider()
-                val toggleAutomation = { on: Boolean -> scope.launch { ZeroDroidConnection.screen.setShowAutomationTile(on) }; Unit }
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { toggleAutomation(!showAutomation) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Show Automation card", style = ZcType.body)
-                        Text("Off hides it from Home. Jobs keep running.", style = ZcType.caption)
-                    }
-                    ZcSwitch(showAutomation, toggleAutomation)
+                HomeSwitchRow("Automation", "Off hides it from Home. Jobs keep running.", showAutomation) {
+                    scope.launch { ZeroDroidConnection.screen.setShowAutomationTile(it) }
                 }
                 Divider()
-                val toggleDoctor = { on: Boolean -> scope.launch { ZeroDroidConnection.screen.setShowDoctorTile(on) }; Unit }
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { toggleDoctor(!showDoctor) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Show Doctor card", style = ZcType.body)
-                        Text("Off hides it from Home. Doctor stays in Config.", style = ZcType.caption)
-                    }
-                    ZcSwitch(showDoctor, toggleDoctor)
+                HomeSwitchRow("Doctor", "Off hides it from Home. Doctor stays in Config.", showDoctor) {
+                    scope.launch { ZeroDroidConnection.screen.setShowDoctorTile(it) }
                 }
             }
 
@@ -248,6 +217,23 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
 
 @Composable
 private fun Divider() = HorizontalDivider(color = ZcTokens.hairline)
+
+/** One Home shortcut switch: room above and below, and a gap before the switch so a two-line caption never touches it. */
+@Composable
+private fun HomeSwitchRow(title: String, caption: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = ZcType.body)
+            Spacer(Modifier.height(2.dp))
+            Text(caption, style = ZcType.caption)
+        }
+        Spacer(Modifier.width(12.dp))
+        ZcSwitch(checked, onChange)
+    }
+}
 
 @Composable
 private fun InfoRow(icon: ImageVector, label: String, value: String, mono: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
