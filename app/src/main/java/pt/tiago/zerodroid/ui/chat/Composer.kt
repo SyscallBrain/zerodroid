@@ -29,6 +29,7 @@ import pt.tiago.zerodroid.data.MAX_IMAGES
 import pt.tiago.zerodroid.data.OutgoingImage
 import pt.tiago.zerodroid.data.checkImages
 import pt.tiago.zerodroid.data.mergePicked
+import pt.tiago.zerodroid.ui.kit.rememberSyncedTextFieldState
 import pt.tiago.zerodroid.ui.kit.Skeleton
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,6 +44,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -82,6 +84,7 @@ fun Composer(
 ) {
     // The draft lives in the session, so leaving the chat keeps what was typed and picked.
     val text by draftText.collectAsState()
+    val field = rememberSyncedTextFieldState(text) { draftText.value = it }
     val images by draftImages.collectAsState()
     var imageError by remember { mutableStateOf<String?>(null) }
     // Informational only (never blocks Send), unlike imageError.
@@ -159,12 +162,11 @@ fun Composer(
                 )
             }
             BasicTextField(
-                value = text,
-                onValueChange = { draftText.value = it },
+                state = field,
                 enabled = enabled,
                 textStyle = ZcType.body,
                 cursorBrush = SolidColor(ZcTokens.accentStart),
-                maxLines = 6,
+                lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 modifier = Modifier.fillMaxWidth(),
             )

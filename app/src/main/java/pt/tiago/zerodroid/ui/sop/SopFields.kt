@@ -144,7 +144,7 @@ fun ToolField(chosen: List<String>, suggestions: List<String>, onChange: (List<S
     ZcTextField(
         query, { query = it }, "Add a tool (e.g. shell)", leadingIcon = ZcIcons.Plus, mono = true, modifier = Modifier.fillMaxWidth(),
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { add(query) }),
+        onImeAction = { add(query) },
     )
     if (query.isNotBlank()) {
         val matches = ToolSuggestions.filter(suggestions, query, chosen.toSet()).take(6)

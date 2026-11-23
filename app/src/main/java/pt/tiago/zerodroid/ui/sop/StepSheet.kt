@@ -44,7 +44,10 @@ import androidx.compose.ui.focus.focusRequester
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.drop
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -310,7 +313,8 @@ private fun Advanced(vm: SopEditorViewModel, s: EditorState, step: JsonObject, n
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun InstructionsEditor(initial: String, otherSteps: List<Int>, onDone: () -> Unit, onChange: (String) -> Unit) {
-    var value by remember { mutableStateOf(TextFieldValue(initial, TextRange(initial.length))) }
+    val value = rememberTextFieldState(initial)
+    LaunchedEffect(value) { snapshotFlow { value.text.toString() }.drop(1).collect(onChange) }
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -332,9 +336,10 @@ private fun InstructionsEditor(initial: String, otherSteps: List<Int>, onDone: (
                                 val at = value.selection
                                 focusManager.clearFocus()
                                 val tag = "{{steps.$k}}"
-                                val t = value.text.replaceRange(at.min, at.max, tag)
-                                value = TextFieldValue(t, TextRange(at.min + tag.length), composition = null)
-                                onChange(t)
+                                value.edit {
+                                    replace(at.min, at.max, tag)
+                                    selection = TextRange(at.min + tag.length)
+                                }
                                 scope.launch { kotlinx.coroutines.delay(50); runCatching { focus.requestFocus() } }
                             }.padding(horizontal = 10.dp, vertical = 7.dp),
                         )
@@ -342,7 +347,7 @@ private fun InstructionsEditor(initial: String, otherSteps: List<Int>, onDone: (
                 }
             }
             BasicTextField(
-                value, { value = it; onChange(it.text) },
+                value,
                 textStyle = ZcType.body,
                 cursorBrush = SolidColor(ZcTokens.accentStart),
                 modifier = Modifier.fillMaxSize().padding(ZcTokens.gutter).focusRequester(focus),
