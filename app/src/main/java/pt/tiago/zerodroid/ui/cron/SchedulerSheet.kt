@@ -1,6 +1,7 @@
 package pt.tiago.zerodroid.ui.cron
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -52,7 +53,7 @@ fun SchedulerSheet(settings: SchedulerSettings?, forbidden: Boolean, saving: Boo
         contentWindowInsets = NoSheetInsets,
     ) {
         SheetBody {
-            Column(Modifier.navigationBarsPadding().padding(horizontal = ZcTokens.gutter, vertical = 12.dp)) {
+            Column(Modifier.navigationBarsPadding().imePadding().padding(horizontal = ZcTokens.gutter, vertical = 12.dp)) {
                 Text("Scheduler", style = ZcType.title)
                 Spacer(Modifier.height(12.dp))
                 when {

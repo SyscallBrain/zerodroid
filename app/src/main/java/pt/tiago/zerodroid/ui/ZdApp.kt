@@ -23,6 +23,9 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBars
@@ -251,12 +254,17 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
     // existing screen instead of composing one from scratch.
     val chatShown = chatId != null
     val tabsAlpha = animateFloatAsState(if (chatShown) 0f else 1f, tween(if (chatShown) 150 else 180), label = "tabs")
+    // With the keyboard up the tabs end at its top edge, so a focused field low on a screen (the last
+    // config field) can scroll above it; the tab bar steps aside while typing.
+    @OptIn(ExperimentalLayoutApi::class)
+    val imeOpen = WindowInsets.isImeVisible
     Box(Modifier.fillMaxSize()) {
         Column(
             Modifier
                 .fillMaxSize()
                 .skipWhen { chatShown && tabsAlpha.value == 0f }
-                .graphicsLayer { alpha = tabsAlpha.value },
+                .graphicsLayer { alpha = tabsAlpha.value }
+                .imePadding(),
         ) {
             KeepAliveTabs(selected = tab, modifier = Modifier.weight(1f).windowInsetsPadding(WindowInsets.statusBars)) { index, selected ->
                 val active = selected && !chatShown
@@ -283,7 +291,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                     )
                 }
             }
-            ZcTabBar(
+            if (!imeOpen) ZcTabBar(
                 tabs = listOf(
                     ZcTab("Home", ZcIcons.Home),
                     ZcTab("Chats", ZcIcons.Chats),
