@@ -35,8 +35,20 @@ class OverviewTest {
 
     @Test
     fun cpuNormalisedByCores() {
-        assertEquals("4%", cpuMetric(health.process).value)
+        assertEquals("4.1%", cpuMetric(health.process).value)
         assertEquals("100%", cpuMetric(ProcessStats(cpuPercent = 900.0, numCpus = 8)).value)
+    }
+
+    @Test
+    fun cpuKeepsSmallLoadsVisible() {
+        assertEquals("0%", cpuText(0.0))
+        assertEquals("<0.1%", cpuText(0.04))
+        assertEquals("0.2%", cpuText(0.24))
+        assertEquals("9.9%", cpuText(9.9))
+        assertEquals("10%", cpuText(9.96))
+        assertEquals("42%", cpuText(42.4))
+        // The phone daemon at idle: 1.65 % of one core over 7 cores.
+        assertEquals("0.2%", cpuMetric(ProcessStats(cpuPercent = 1.65, numCpus = 7)).value)
     }
 
     @Test
