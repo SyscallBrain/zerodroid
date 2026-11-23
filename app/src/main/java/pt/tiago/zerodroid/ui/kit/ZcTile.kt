@@ -32,6 +32,8 @@ fun ZcTile(
     stale: Boolean = false,
     loading: Boolean = false,
     onClick: (() -> Unit)? = null,
+    /** Push [footer] to the bottom; only for tiles given a bounded height (e.g. `fillMaxHeight` in an intrinsic Row). */
+    pinFooter: Boolean = false,
     footer: @Composable (() -> Unit)? = null,
 ) {
     pt.tiago.zerodroid.RecomposeProbe("ZcTile")
@@ -63,6 +65,7 @@ fun ZcTile(
         if (caption != null && value != null) {
             Text(caption, style = ZcType.caption.copy(color = ZcTokens.faint), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        if (pinFooter) Spacer(Modifier.weight(1f))
         if (footer != null) {
             Spacer(Modifier.height(10.dp))
             footer()

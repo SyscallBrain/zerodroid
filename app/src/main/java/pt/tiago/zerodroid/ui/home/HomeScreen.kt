@@ -2,12 +2,15 @@ package pt.tiago.zerodroid.ui.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,6 +65,9 @@ import pt.tiago.zerodroid.ui.theme.ZcType
 import java.time.LocalTime
 
 private const val AGENTS_FOLDED = 6
+
+/** With pinned agents above, fewer unpinned rows: the Home stays one short scroll. */
+private const val AGENTS_FOLDED_WITH_PINS = 3
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -161,13 +167,13 @@ fun HomeScreen(
                 Column2x2(
                     a = {
                         ZcTile(
-                            "Memory", m.memory.value, caption = m.memory.caption, stale = m.stale, loading = loading, modifier = it,
+                            "Memory", m.memory.value, caption = m.memory.caption, stale = m.stale, loading = loading, modifier = it, pinFooter = true,
                             footer = m.memory.fraction?.let { f -> { BudgetBar(f) } },
                         )
                     },
                     b = {
                         ZcTile(
-                            "CPU", m.cpu.value, caption = m.cpu.suffix, stale = m.stale, loading = loading, modifier = it,
+                            "CPU", m.cpu.value, caption = m.cpu.suffix ?: "all cores", stale = m.stale, loading = loading, modifier = it, pinFooter = true,
                             footer = m.cpu.fraction?.let { f -> { BudgetBar(f) } },
                         )
                     },
@@ -175,70 +181,50 @@ fun HomeScreen(
                     d = { ZcTile("Sessions", m.activeSessions?.toString(), suffix = "active", stale = m.stale, loading = loading, modifier = it) },
                 )
             }
-            if (showWorkflows) item("workflows") {
-                ZcTile(
-                    "Workflows",
-                    workflows?.toString(),
-                    suffix = "saved",
-                    caption = if (workflowsWaiting > 0) "$workflowsWaiting waiting for you" else "Step-by-step procedures",
-                    loading = !m.loaded,
-                    onClick = onOpenWorkflows,
-                    modifier = Modifier.fillMaxWidth(),
-                    footer = if (workflowsWaiting > 0) { { pt.tiago.zerodroid.ui.kit.StatusPill("Needs approval", Tone.Attention) } } else null,
-                )
-            }
-            if (showCanvas) item("canvas") {
-                // Read here, not at the top: a new frame recomposes only this tile.
+            if (showWorkflows || showCanvas || showAutomation || showDoctor) item("shortcuts") {
+                // Read here, not at the top: a new canvas or a finished doctor run recomposes only this card.
                 val canvases by pt.tiago.zerodroid.data.ZeroDroidConnection.canvas.canvases.collectAsStateWithLifecycle()
-                ZcTile(
-                    "Canvas",
-                    canvases.size.toString(),
-                    suffix = "saved",
-                    caption = "Charts and pages agents drew",
-                    onClick = onOpenCanvas,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            if (showAutomation) item("automation") {
-                val failing = m.automationFailing
-                val degraded = m.automationDegraded
-                // Same words and colours as the list's pills: red "Failed", amber "Degraded".
-                val (caption, pill) = when {
-                    failing > 0 -> "$failing failed last run" to ("Failed" to Tone.Danger)
-                    degraded > 0 -> "$degraded degraded last run" to ("Degraded" to Tone.Attention)
-                    else -> "Scheduled jobs" to null
-                }
-                ZcTile(
-                    "Automation",
-                    m.automationJobs?.toString(),
-                    suffix = "jobs",
-                    caption = caption,
-                    loading = !m.loaded,
-                    onClick = onOpenAutomation,
-                    modifier = Modifier.fillMaxWidth(),
-                    footer = pill?.let { (label, tone) -> { pt.tiago.zerodroid.ui.kit.StatusPill(label, tone) } },
-                )
-            }
-            if (showDoctor) item("doctor") {
-                // Read here, not at the top: a finished run recomposes only this tile.
                 val ds by pt.tiago.zerodroid.data.ZeroDroidConnection.doctor.state.collectAsStateWithLifecycle()
-                val t = pt.tiago.zerodroid.ui.doctor.doctorTile(ds, pt.tiago.zerodroid.ui.doctor.currentDaemonKey()) {
-                    java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(it))
+                val rows = buildList {
+                    if (showWorkflows) add(
+                        ShortcutRow(
+                            "workflows", ZcIcons.Flow, "Workflows",
+                            workflows?.let { "$it saved" },
+                            if (workflowsWaiting > 0) "$workflowsWaiting waiting for you" else "Step-by-step procedures",
+                            if (workflowsWaiting > 0) "Needs approval" to Tone.Attention else null,
+                            loading = !m.loaded, onClick = onOpenWorkflows,
+                        ),
+                    )
+                    if (showCanvas) add(
+                        ShortcutRow("canvas", ZcIcons.Image, "Canvas", "${canvases.size} saved", "Charts and pages agents drew", null, onClick = onOpenCanvas),
+                    )
+                    if (showAutomation) {
+                        val failing = m.automationFailing
+                        val degraded = m.automationDegraded
+                        // Same words and colours as the list's pills: red "Failed", amber "Degraded".
+                        val (caption, pill) = when {
+                            failing > 0 -> "$failing failed last run" to ("Failed" to Tone.Danger)
+                            degraded > 0 -> "$degraded degraded last run" to ("Degraded" to Tone.Attention)
+                            else -> "Scheduled jobs" to null
+                        }
+                        add(ShortcutRow("automation", ZcIcons.Clock, "Automation", m.automationJobs?.let { "$it jobs" }, caption, pill, loading = !m.loaded, onClick = onOpenAutomation))
+                    }
+                    if (showDoctor) {
+                        val t = pt.tiago.zerodroid.ui.doctor.doctorTile(ds, pt.tiago.zerodroid.ui.doctor.currentDaemonKey()) {
+                            java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(it))
+                        }
+                        add(
+                            ShortcutRow(
+                                "doctor", ZcIcons.Shield, "Doctor",
+                                t.value?.let { v -> listOfNotNull(v, t.suffix).joinToString(" ") },
+                                t.caption,
+                                if (t.running) "Running checks" to Tone.Live else t.pill,
+                                loading = t.loading, pulse = t.running, onClick = onOpenDoctor,
+                            ),
+                        )
+                    }
                 }
-                ZcTile(
-                    "Doctor",
-                    t.value,
-                    suffix = t.suffix,
-                    caption = t.caption,
-                    loading = t.loading,
-                    onClick = onOpenDoctor,
-                    modifier = Modifier.fillMaxWidth(),
-                    footer = if (t.running) {
-                        { pt.tiago.zerodroid.ui.kit.StatusPill("Running checks", Tone.Live, pulse = true) }
-                    } else {
-                        t.pill?.let { (label, tone) -> { pt.tiago.zerodroid.ui.kit.StatusPill(label, tone) } }
-                    },
-                )
+                ShortcutsCard(rows)
             }
             if (m.core.isNotEmpty() || m.channels.isNotEmpty()) {
                 item("system") { SystemCard(m, Modifier.alpha(if (m.stale) 0.6f else 1f)) }
@@ -253,6 +239,7 @@ fun HomeScreen(
                                 Icon(ZcIcons.Clock, null, tint = ZcTokens.muted, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(10.dp))
                                 Text(label, style = ZcType.body, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Spacer(Modifier.width(12.dp))
                                 Text(time, style = ZcType.mono.copy(color = ZcTokens.accentStart))
                             }
                         }
@@ -263,11 +250,12 @@ fun HomeScreen(
                 item("pinned-h") { SectionHeader("Pinned", Modifier.padding(top = 10.dp)) }
                 items(m.pinned, key = { "p-" + it.alias }) { a -> HomeAgentRow(a, true, m.stale, viewModel, onOpenAgent, Modifier.animateItem()) }
             }
+            val folded = if (m.pinned.isEmpty()) AGENTS_FOLDED else AGENTS_FOLDED_WITH_PINS
             item("agents-h") {
                 SectionHeader(
                     if (m.agents.isEmpty()) "Agents" else "Agents · ${m.agents.size}",
                     Modifier.padding(top = 10.dp),
-                    action = if (m.agents.size > AGENTS_FOLDED) (if (showAll) "Show less" else "See all") else null,
+                    action = if (m.agents.size > folded) (if (showAll) "Show less" else "See all") else null,
                     onAction = { showAll = !showAll },
                 )
             }
@@ -284,7 +272,7 @@ fun HomeScreen(
                     EmptyState(ZcIcons.Sparkle, "No agents", "This daemon has no agents configured, or this device may not list them.")
                 }
             } else {
-                val shown = if (showAll) m.agents else m.agents.take(AGENTS_FOLDED)
+                val shown = if (showAll) m.agents else m.agents.take(folded)
                 items(shown, key = { "a-" + it.alias }) { a -> HomeAgentRow(a, false, m.stale, viewModel, onOpenAgent, Modifier.animateItem()) }
             }
         }
@@ -386,13 +374,14 @@ private fun Column2x2(
     d: @Composable (Modifier) -> Unit,
 ) {
     androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(ZcTokens.gap)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(ZcTokens.gap)) {
-            a(Modifier.weight(1f))
-            b(Modifier.weight(1f))
+        // Each row as tall as its tallest tile, so the cards (and their bars) line up.
+        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(ZcTokens.gap)) {
+            a(Modifier.weight(1f).fillMaxHeight())
+            b(Modifier.weight(1f).fillMaxHeight())
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(ZcTokens.gap)) {
-            c(Modifier.weight(1f))
-            d(Modifier.weight(1f))
+        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(ZcTokens.gap)) {
+            c(Modifier.weight(1f).fillMaxHeight())
+            d(Modifier.weight(1f).fillMaxHeight())
         }
     }
 }
@@ -414,5 +403,67 @@ private fun greeting(): String {
         h < 12 -> "Good morning"
         h < 18 -> "Good afternoon"
         else -> "Good evening"
+    }
+}
+
+/** One destination in the Home's shortcut list: what it is, how much, and whether it needs a look. */
+private data class ShortcutRow(
+    val key: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val title: String,
+    val value: String?,
+    val caption: String,
+    val pill: Pair<String, Tone>?,
+    val loading: Boolean = false,
+    val pulse: Boolean = false,
+    val onClick: () -> Unit,
+)
+
+private fun Tone.urgency(): Int = when (this) {
+    Tone.Danger -> 0
+    Tone.Attention -> 1
+    else -> 2
+}
+
+/**
+ * Workflows, Canvas, Automation and Doctor as one grouped list rather than four metric tiles:
+ * they are places to go, not numbers to read. Rows with a red or amber pill float to the top.
+ */
+@Composable
+private fun ShortcutsCard(rows: List<ShortcutRow>) {
+    val ordered = rows.sortedBy { it.pill?.second?.urgency() ?: 2 }
+    ZcCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)) {
+        ordered.forEachIndexed { i, r ->
+            if (i > 0) HorizontalDivider(color = ZcTokens.hairline, modifier = Modifier.padding(start = 46.dp))
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = r.onClick).padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(ZcTokens.raised),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(r.icon, null, tint = ZcTokens.muted, modifier = Modifier.size(17.dp)) }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(r.title, style = ZcType.bodyStrong, maxLines = 1)
+                        if (r.value != null) {
+                            Spacer(Modifier.width(8.dp))
+                            Text(r.value, style = ZcType.small, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        } else if (r.loading) {
+                            Spacer(Modifier.width(8.dp))
+                            Skeleton(Modifier.width(44.dp).height(12.dp))
+                        }
+                    }
+                    Text(r.caption, style = ZcType.caption.copy(color = ZcTokens.faint), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                r.pill?.let { (label, tone) ->
+                    Spacer(Modifier.width(8.dp))
+                    StatusPill(label, tone, pulse = r.pulse)
+                }
+                Spacer(Modifier.width(6.dp))
+                Icon(ZcIcons.Chevron, null, tint = ZcTokens.faint, modifier = Modifier.size(14.dp))
+            }
+        }
     }
 }
