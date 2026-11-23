@@ -226,6 +226,23 @@ you asked for. If you'd rather not patch the daemon, simply don't use
 Automation, and hide its card from Home in Config → ZeroDroid & pairing →
 Home → Show Automation card.
 
+### CPU reading in Termux: the process-stats patch
+
+You need this patch only if the daemon runs in Termux on a phone without
+root. On a server, a desktop or a rooted phone, the CPU tile works with an
+unmodified daemon.
+
+ZeroClaw works out its own CPU usage from the system-wide times in
+`/proc/stat`. Android 8 and later deny that file to apps, Termux included,
+so an unpatched daemon finds no CPUs: the Home CPU tile then stays at 0 %
+whatever the daemon is doing, and its caption reads "all cores" instead of
+the core count. The
+[`zerodroid/android-process-cpu`](https://github.com/SyscallBrain/zeroclaw/tree/zerodroid/android-process-cpu)
+branch falls back, only when `/proc/stat` can't be read, to the daemon's
+own CPU time in `/proc/self/stat` measured against the clock, and to the
+number of CPUs the process may run on. `android-master-zerodroid` already
+includes this patch. It changes no stored data.
+
 ## Pairing
 
 The phone needs two things from the daemon: a client certificate from the
