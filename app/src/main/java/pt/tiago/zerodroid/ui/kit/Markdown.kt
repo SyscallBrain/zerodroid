@@ -102,13 +102,18 @@ fun parseMarkdown(src: String): List<MdBlock> {
 private val inlineRe = Regex("""(`[^`]+`)|(\*\*[^*]+\*\*)|(__[^_]+__)|(\*[^*\s][^*]*\*)|(_[^_\s][^_]*_)|(\[[^\]]+\]\([^)]+\))""")
 
 /** Inline spans: `code`, **bold**, *italic*, [links](url). */
+private val InlineCodeBg = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.07f)
+
 fun inlineMarkdown(text: String): AnnotatedString = buildAnnotatedString {
     var last = 0
     for (m in inlineRe.findAll(text)) {
         append(text.substring(last, m.range.first))
         val t = m.value
         when {
-            t.startsWith("`") -> withStyle(SpanStyle(fontFamily = ZcMonoFamily, fontSize = 13.5.sp, background = ZcTokens.raised, color = ZcTokens.accentStart)) {
+            // Translucent, not ZcTokens.raised: a span background is painted over the selection
+            // highlight, so an opaque one hid any selection across inline code. White at 7 % on the
+            // chat background looks the same as `raised`.
+            t.startsWith("`") -> withStyle(SpanStyle(fontFamily = ZcMonoFamily, fontSize = 13.5.sp, background = InlineCodeBg, color = ZcTokens.accentStart)) {
                 append(" ${t.trim('`')} ")
             }
             t.startsWith("**") || t.startsWith("__") -> withStyle(SpanStyle(fontWeight = FontWeight(650))) { append(t.substring(2, t.length - 2)) }
