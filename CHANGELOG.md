@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-11-23
+
+### Fixed
+
+- The Home CPU tile shows the daemon's CPU figure as zerocode does: summed
+  across cores, like `top`, with one decimal rounded the same way. It used to
+  divide it by the number of cores, so it read a fraction of zerocode's
+  number for the same daemon. The bar still shows the share of all cores.
+
 ## [0.9.4] - 2026-11-23
 
 ### Fixed
@@ -193,7 +202,12 @@ First public release.
 - Release APKs built, signed and published by GitHub Actions, with
   `SHA256SUMS` and signed build provenance.
 
-[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.5...HEAD
+[0.9.5]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.4...v0.9.5
+[0.9.4]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.3...v0.9.4
+[0.9.3]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.2...v0.9.3
+[0.9.2]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/SyscallBrain/zerodroid/compare/v0.6.0...v0.7.0
