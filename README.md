@@ -163,8 +163,8 @@ memory all stay on the daemon.
 
 | | | |
 |:-:|:-:|:-:|
-| ![Doctor results: one error, two warnings and 151 checks OK, with Fix buttons on the config findings](docs/screenshots/doctor.jpg) | | |
-| Findings with Fix | | |
+| ![Doctor results: one error, two warnings and 151 checks OK, with Fix buttons on the config findings](docs/screenshots/doctor.jpg) | ![Doctor running its checks again after the fixes, with one warning left](docs/screenshots/doctor-running.jpg) | ![All 142 checks passed](docs/screenshots/doctor-passed.jpg) |
+| Findings with Fix | Running the checks | All checks passed |
 
 ## Install
 
