@@ -4,6 +4,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
@@ -16,6 +20,16 @@ import androidx.compose.ui.platform.LocalDensity
  * The content pads the navigation bar itself and sits in [SheetBody] to stay below the status bar.
  */
 val NoSheetInsets: @Composable () -> WindowInsets = { WindowInsets(0) }
+
+/** State for every ModalBottomSheet here: opens fully, no partially expanded stop. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun rememberFullSheetState(confirmValueChange: (SheetValue) -> Boolean = { true }): SheetState =
+    rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+        confirmValueChange = confirmValueChange,
+    )
 
 /**
  * Caps sheet content at the height left under the status bar. The cap is fixed, so the sheet's

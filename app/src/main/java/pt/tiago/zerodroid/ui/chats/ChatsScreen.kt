@@ -29,7 +29,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +47,7 @@ import pt.tiago.zerodroid.ui.kit.Avatar
 import pt.tiago.zerodroid.ui.kit.ConnectionBanner
 import pt.tiago.zerodroid.ui.kit.EmptyState
 import pt.tiago.zerodroid.ui.kit.NoSheetInsets
+import pt.tiago.zerodroid.ui.kit.rememberFullSheetState
 import pt.tiago.zerodroid.ui.kit.SheetBody
 import pt.tiago.zerodroid.ui.kit.Skeleton
 import pt.tiago.zerodroid.ui.kit.StatusDot
@@ -118,7 +118,7 @@ fun ChatsScreen(viewModel: ChatsViewModel, active: Boolean = true, onOpen: (Stri
     }
 
     if (picker) {
-        val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val sheet = rememberFullSheetState()
         ModalBottomSheet(
             onDismissRequest = { picker = false },
             sheetState = sheet,

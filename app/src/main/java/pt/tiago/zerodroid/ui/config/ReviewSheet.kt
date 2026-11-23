@@ -23,7 +23,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +45,7 @@ import pt.tiago.zerodroid.rpc.ConnState
 import pt.tiago.zerodroid.rpc.proto.ApplyOutcome
 import pt.tiago.zerodroid.ui.kit.ConnectionBanner
 import pt.tiago.zerodroid.ui.kit.NoSheetInsets
+import pt.tiago.zerodroid.ui.kit.rememberFullSheetState
 import pt.tiago.zerodroid.ui.kit.SectionHeader
 import pt.tiago.zerodroid.ui.kit.SheetBody
 import pt.tiago.zerodroid.ui.kit.Tone
@@ -89,7 +89,7 @@ fun ReviewSheet(onDismiss: () -> Unit) {
     var reloadError by remember { mutableStateOf<String?>(null) }
     ModalBottomSheet(
         onDismissRequest = { if (!applying) onDismiss() },
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { !applying }),
+        sheetState = rememberFullSheetState(confirmValueChange = { !applying }),
         containerColor = ZcTokens.surface,
         scrimColor = ZcTokens.scrim,
         dragHandle = { Box(Modifier.padding(top = 10.dp).size(36.dp, 4.dp).background(ZcTokens.hairlineStrong, RoundedCornerShape(2.dp))) },

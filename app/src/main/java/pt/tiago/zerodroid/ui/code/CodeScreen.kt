@@ -33,7 +33,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,6 +58,7 @@ import pt.tiago.zerodroid.ui.kit.Avatar
 import pt.tiago.zerodroid.ui.kit.ConnectionBanner
 import pt.tiago.zerodroid.ui.kit.EmptyState
 import pt.tiago.zerodroid.ui.kit.NoSheetInsets
+import pt.tiago.zerodroid.ui.kit.rememberFullSheetState
 import pt.tiago.zerodroid.ui.kit.SheetBody
 import pt.tiago.zerodroid.ui.kit.Skeleton
 import pt.tiago.zerodroid.ui.kit.StatusDot
@@ -118,7 +118,7 @@ fun CodeScreen(viewModel: CodeViewModel, active: Boolean = true, onOpen: (String
         // One sheet for both steps of New: a second sheet would add another window.
         ModalBottomSheet(
             onDismissRequest = viewModel::closeBrowse,
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            sheetState = rememberFullSheetState(),
             containerColor = ZcTokens.surface,
             scrimColor = ZcTokens.scrim,
             dragHandle = { SheetHandle() },
