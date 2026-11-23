@@ -6,6 +6,25 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-11-23
+
+### Fixed
+
+- Bottom sheets with a text field (New chat, the chat's agent and model
+  pickers, the automation scheduler, running a workflow) stay above the
+  keyboard; typing in their search or input used to hide the sheet behind it.
+- Screens under the tabs end at the top of the keyboard and the tab bar steps
+  aside while typing, so a field near the bottom (the last field of a config
+  section) scrolls into view instead of staying under the keyboard. A focused
+  field shows its whole box, not just the cursor line.
+
+### Changed
+
+- Compose BOM 2026.11.01 and Gradle 9.9.2. Text fields and bottom sheets
+  moved to the current Compose APIs (state-based text fields,
+  `rememberBottomSheetState`); typing, the keyboard's Done/Go key and
+  inserting `{{steps.N}}` in workflow instructions behave as before.
+
 ## [0.9.3] - 2026-11-23
 
 ### Added
