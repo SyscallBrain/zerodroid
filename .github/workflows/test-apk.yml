@@ -6,9 +6,11 @@
 # Start it (from Termux, or anywhere with gh):
 #   gh workflow run test-apk.yml -R SyscallBrain/zerodroid --ref <branch>
 #   gh workflow run test-apk.yml -R SyscallBrain/zerodroid --ref <branch> -f checks=false
-# Follow it and fetch the APK:
-#   gh run watch -R SyscallBrain/zerodroid --exit-status
-#   gh run download -R SyscallBrain/zerodroid --pattern 'zerodroid-*'
+# Follow it and fetch the APK from that same run (the newest run of this
+# workflow; gh run download without a run id would ask which run):
+#   run=$(gh run list -R SyscallBrain/zerodroid -w test-apk.yml -L 1 --json databaseId -q '.[0].databaseId')
+#   gh run watch "$run" -R SyscallBrain/zerodroid --exit-status
+#   gh run download "$run" -R SyscallBrain/zerodroid
 name: Test APK (manual)
 
 # The only trigger is "Run workflow" / "gh workflow run": no push,
