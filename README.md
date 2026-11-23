@@ -23,7 +23,7 @@ Your [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw) agents, in your pocke
 </div>
 
 <p align="center">
-  <img src="docs/screenshots/home.jpg" width="24%" alt="Home: daemon status, memory, CPU, uptime and sessions">
+  <img src="docs/screenshots/home.jpg" width="24%" alt="Home: daemon status, memory, CPU, uptime, sessions and shortcuts to Automation, Workflows, Canvas and Doctor">
   <img src="docs/screenshots/chat.jpg" width="24%" alt="A chat with an agent, with a shell tool call and a formatted answer">
   <img src="docs/screenshots/code.jpg" width="24%" alt="The Code tab with folder-rooted sessions">
   <img src="docs/screenshots/config.jpg" width="24%" alt="The Config tab with searchable daemon settings">
@@ -41,8 +41,10 @@ memory all stay on the daemon.
 ## Features
 
 - **Home**: the daemon at a glance. Memory, CPU, uptime and active sessions,
-  which subsystems and channels are running, today's spend, the next
-  scheduled jobs, and your agents with pinned favourites at the top.
+  shortcuts to Automation, Workflows, Canvas and Doctor (whichever needs a
+  look, a failed job or a doctor error, comes first), which subsystems and
+  channels are running, today's spend, the next scheduled jobs, and your
+  agents with pinned favourites at the top. Each shortcut can be hidden.
 - **Chats** with any agent, across many sessions. Answers stream in with
   Markdown and code formatting, every tool call shows its arguments and
   output, and you can steer or stop a running turn. Send images, rename and
@@ -58,12 +60,12 @@ memory all stay on the daemon.
   suggested tools and the outputs of earlier steps. Set triggers, the
   execution mode, the agent and concurrency, run a workflow with optional
   input, and follow its runs and approvals live. If the daemon's SOP engine
-  is off, the app can turn it on for you, and the Home card can be hidden if
+  is off, the app can turn it on for you, and its Home shortcut can be hidden if
   you don't use SOPs.
 - **Canvas**: when an agent draws something with its `canvas` tool (a chart,
   a table, a diagram) in a chat or code session on the phone, the app keeps a
   copy, so you can open it again later, even after the daemon restarts (the
-  daemon keeps canvases in memory only). Open them from the Home card, from
+  daemon keeps canvases in memory only). Open them from Home, from
   the canvas tool call while it is on screen, or from the canvas icon at the
   top of the chat that drew them. HTML and SVG frames open in a sandboxed view
   that can run scripts and load chart libraries but cannot reach the app or
@@ -81,10 +83,16 @@ memory all stay on the daemon.
   resume it, delete it, and read each run's status, duration and full
   output. The scheduler's own switches are there too (they apply after the
   daemon restarts). Jobs defined in `config.toml` are shown read-only, and
-  the Home card can be hidden. **Automation needs a patched daemon**: see
+  its Home shortcut can be hidden. **Automation needs a patched daemon**: see
   [Automation: the cron patch](#automation-the-cron-patch). If you don't
   want to patch the daemon, don't use Automation; hide its card and nothing
   else changes.
+- **Doctor**: run ZeroClaw's own checks (`zeroclaw doctor`) from the phone
+  and read the findings grouped by category, filtered by errors, warnings
+  and passes. A finding about a channel or a model provider has a Fix button
+  that opens that entry in Config. Home shows the last run's result; the
+  doctor never runs on its own, only when you ask (Doctor on Home, or
+  Config → Doctor).
 - **Approvals**: when an agent asks for permission, approve or deny from the
   Inbox or straight from the notification. Nothing is ever approved without
   your tap.
@@ -105,7 +113,7 @@ memory all stay on the daemon.
 
 | | | |
 |:-:|:-:|:-:|
-| ![Home with the daemon status](docs/screenshots/home.jpg) | ![Home with scheduled jobs and pinned agents](docs/screenshots/home-agents.jpg) | ![The list of chats](docs/screenshots/chats.jpg) |
+| ![Home with the daemon status and the shortcuts list](docs/screenshots/home.jpg) | ![Home with scheduled jobs and pinned agents](docs/screenshots/home-agents.jpg) | ![The list of chats](docs/screenshots/chats.jpg) |
 | Home | Up next and pinned agents | Chats |
 | ![A chat streaming tool calls](docs/screenshots/chat-working.jpg) | ![A tool call opened with its arguments and output](docs/screenshots/tool-call.jpg) | ![Picking an agent for a new chat](docs/screenshots/new-chat.jpg) |
 | A turn running | Tool call details | New chat |
@@ -117,7 +125,7 @@ memory all stay on the daemon.
 
 | | | |
 |:-:|:-:|:-:|
-| ![The welcome screen with the pairing and OIDC options](docs/screenshots/onboarding.jpg) | ![Confirming the pairing code](docs/screenshots/pair-confirm.jpg) | ![The paired daemon and its certificate](docs/screenshots/pairing-settings.jpg) |
+| ![The welcome screen with the pairing and OIDC options](docs/screenshots/onboarding.jpg) | ![Confirming the pairing code](docs/screenshots/pair-confirm.jpg) | ![The paired daemon, its certificate and the Home shortcut switches](docs/screenshots/pairing-settings.jpg) |
 | Welcome | Compare the code | Paired daemon |
 | ![The OIDC sign-in form with the advanced WSS and gateway URLs](docs/screenshots/oidc-sign-in.jpg) | | |
 | Sign in with OIDC | | |
@@ -139,17 +147,17 @@ memory all stay on the daemon.
 
 | | | |
 |:-:|:-:|:-:|
-| ![Home with the Canvas card showing four saved canvases](docs/screenshots/canvas-home.jpg) | ![The list of saved canvases with their type, frame count and agent](docs/screenshots/canvas-list.jpg) | ![A bar chart an agent drew, opened from the list](docs/screenshots/canvas-chart.jpg) |
-| The Canvas card | Saved canvases | A chart an agent drew |
+| ![The list of saved canvases with their type, frame count and agent](docs/screenshots/canvas-list.jpg) | ![A bar chart an agent drew, opened from the list](docs/screenshots/canvas-chart.jpg) | |
+| Saved canvases | A chart an agent drew | |
 
 ### Automation
 
 | | | |
 |:-:|:-:|:-:|
-| ![The Automation card on Home with eight jobs and one degraded run](docs/screenshots/automation-home.jpg) | ![The list of scheduled jobs with their agent, type, schedule, status and next run](docs/screenshots/automation-list.jpg) | ![The scheduler settings sheet](docs/screenshots/automation-scheduler.jpg) |
-| The Automation card | Scheduled jobs | Scheduler settings |
-| ![A new shell job with its name, agent, schedule and command](docs/screenshots/automation-shell-job.jpg) | ![A new agent job with its prompt, model, session, tools, memory and delivery to a channel](docs/screenshots/automation-agent-job.jpg) | |
-| A shell job | An agent job with delivery | |
+| ![The list of scheduled jobs with their agent, type, schedule, status and next run](docs/screenshots/automation-list.jpg) | ![A new shell job with its name, agent, schedule and command](docs/screenshots/automation-shell-job.jpg) | ![A new agent job with its prompt, model, session, tools, memory and delivery to a channel](docs/screenshots/automation-agent-job.jpg) |
+| Scheduled jobs | A shell job | An agent job with delivery |
+| ![The scheduler settings sheet](docs/screenshots/automation-scheduler.jpg) | | |
+| Scheduler settings | | |
 
 ## Install
 
