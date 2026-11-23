@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
@@ -210,7 +209,7 @@ private fun PairOptions(onLink: (String) -> Unit, onScanQr: () -> Unit, onOidc: 
                         singleLine = false,
                         maxLines = 4,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done, autoCorrectEnabled = false),
-                        keyboardActions = KeyboardActions(onDone = { if (text.isNotBlank()) onLink(text) }),
+                        onImeAction = { if (text.isNotBlank()) onLink(text) },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(10.dp))

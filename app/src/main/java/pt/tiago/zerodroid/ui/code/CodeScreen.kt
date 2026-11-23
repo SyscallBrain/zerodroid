@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -215,7 +214,7 @@ private fun FolderBrowserContent(b: FolderBrowse, recent: List<String>, creating
         ZcTextField(
             typed, { typed = it }, "/path/on/the/daemon", mono = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-            keyboardActions = KeyboardActions(onGo = { viewModel.browseTo(typed) }),
+            onImeAction = { viewModel.browseTo(typed) },
             trailing = { if (typed != b.path) TextButton(onClick = { viewModel.browseTo(typed) }) { Text("Go", style = ZcType.button.copy(color = ZcTokens.accentStart)) } },
             modifier = Modifier.fillMaxWidth().padding(horizontal = ZcTokens.gutter),
         )

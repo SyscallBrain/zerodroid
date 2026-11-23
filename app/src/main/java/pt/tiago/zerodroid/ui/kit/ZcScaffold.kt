@@ -21,8 +21,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.KeyboardActionHandler
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -95,7 +96,8 @@ fun ZcTextField(
     mono: Boolean = false,
     leadingIcon: ImageVector? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    /** Runs on the keyboard's action key (Done, Go…) in place of its default; null keeps the default. */
+    onImeAction: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     enabled: Boolean = true,
 ) {
@@ -114,17 +116,16 @@ fun ZcTextField(
             Spacer(Modifier.width(10.dp))
         }
         Box(Modifier.weight(1f)) {
-            if (value.isEmpty()) Text(placeholder, style = style.copy(color = ZcTokens.faint), maxLines = 1)
+            val state = rememberSyncedTextFieldState(value, onValueChange)
+            if (state.text.isEmpty()) Text(placeholder, style = style.copy(color = ZcTokens.faint), maxLines = 1)
             BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
+                state = state,
                 enabled = enabled,
-                singleLine = singleLine,
-                maxLines = maxLines,
+                lineLimits = if (singleLine) TextFieldLineLimits.SingleLine else TextFieldLineLimits.MultiLine(maxHeightInLines = maxLines),
                 textStyle = style,
                 cursorBrush = SolidColor(ZcTokens.accentStart),
                 keyboardOptions = keyboardOptions,
-                keyboardActions = keyboardActions,
+                onKeyboardAction = onImeAction?.let { action -> KeyboardActionHandler { action() } },
                 modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
             )
         }

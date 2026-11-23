@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicSecureTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -200,7 +199,7 @@ private fun TextEditor(f: ConfigField, current: String, enabled: Boolean, contro
             imeAction = if (control == Control.MultilineText) ImeAction.Default else ImeAction.Done,
             autoCorrectEnabled = false,
         ),
-        keyboardActions = KeyboardActions(onDone = { commit() }),
+        onImeAction = if (control == Control.MultilineText) null else ({ commit() }),
         modifier = Modifier.fillMaxWidth().onFocusChanged {
             if (focused && !it.isFocused) commit()
             focused = it.isFocused
@@ -235,9 +234,7 @@ private fun ChipsEditor(items: List<String>, enabled: Boolean, onCommit: (List<S
         ZcTextField(
             adding, { adding = it }, "Add…", mono = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, autoCorrectEnabled = false),
-            keyboardActions = KeyboardActions(onDone = {
-                if (adding.isNotBlank()) { onCommit(items + adding.trim()); adding = "" }
-            }),
+            onImeAction = { if (adding.isNotBlank()) { onCommit(items + adding.trim()); adding = "" } },
             modifier = Modifier.fillMaxWidth(),
         )
     }

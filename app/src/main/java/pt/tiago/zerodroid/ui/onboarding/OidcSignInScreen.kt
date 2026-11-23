@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -136,7 +135,7 @@ private fun OidcForm(s: OidcState.Form, f: OidcFields, onSubmit: (String, String
         ZcTextField(
             alias, { alias = it }, "corp", mono = true,
             keyboardOptions = uri.copy(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { if (host.isNotBlank() && alias.isNotBlank()) submit() }),
+            onImeAction = { if (host.isNotBlank() && alias.isNotBlank()) submit() },
             modifier = Modifier.fillMaxWidth(),
         )
         FieldError(error, Field.Alias)
