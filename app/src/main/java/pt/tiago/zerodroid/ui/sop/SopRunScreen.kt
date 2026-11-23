@@ -3,6 +3,7 @@ package pt.tiago.zerodroid.ui.sop
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -211,7 +212,7 @@ fun RunSheet(name: String, onDismiss: () -> Unit, onStarted: (String) -> Unit, o
     var busy by remember { mutableStateOf(false) }
     var engineOff by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismiss, containerColor = ZcTokens.surface, contentWindowInsets = NoSheetInsets) {
-        Column(Modifier.padding(horizontal = ZcTokens.gutter).windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 20.dp)) {
+        Column(Modifier.padding(horizontal = ZcTokens.gutter).windowInsetsPadding(WindowInsets.navigationBars).imePadding().padding(bottom = 20.dp)) {
             Text("Run ${name.trim()}", style = ZcType.title)
             Spacer(Modifier.height(12.dp))
             if (showInput) {

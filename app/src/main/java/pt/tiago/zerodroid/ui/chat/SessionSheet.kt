@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -111,6 +112,7 @@ fun SessionSheet(
                 Modifier
                     .then(if (step == SheetStep.Main) Modifier.verticalScroll(mainScroll) else Modifier)
                     .navigationBarsPadding()
+                    .imePadding()
                     .padding(horizontal = ZcTokens.gutter)
                     .padding(bottom = 16.dp),
             ) {
