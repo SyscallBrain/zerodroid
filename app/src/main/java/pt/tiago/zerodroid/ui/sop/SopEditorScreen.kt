@@ -33,7 +33,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -59,6 +58,7 @@ import pt.tiago.zerodroid.data.ZeroDroidConnection
 import pt.tiago.zerodroid.data.sop.SopDraft
 import pt.tiago.zerodroid.ui.kit.ConnectionBanner
 import pt.tiago.zerodroid.ui.kit.NoSheetInsets
+import pt.tiago.zerodroid.ui.kit.rememberFullSheetState
 import pt.tiago.zerodroid.ui.kit.SheetBody
 import pt.tiago.zerodroid.ui.kit.SkeletonLines
 import pt.tiago.zerodroid.ui.kit.Tone
@@ -381,7 +381,7 @@ private val STEP_REF = Regex("""(?i)\bstep\s+(\d+)""")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReviewSheet(r: SaveReview, onDismiss: () -> Unit, onGoTo: (Int) -> Unit, onSaveAnyway: () -> Unit) {
-    ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = ZcTokens.surface, contentWindowInsets = NoSheetInsets) {
+    ModalBottomSheet(onDismiss, sheetState = rememberFullSheetState(), containerColor = ZcTokens.surface, contentWindowInsets = NoSheetInsets) {
         SheetBody {
             Column(Modifier.padding(horizontal = ZcTokens.gutter).windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 16.dp).verticalScroll(rememberScrollState())) {
                 Text(if (r.blocking.isNotEmpty()) "Fix these before saving" else "Save with warnings?", style = ZcType.title)

@@ -32,7 +32,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +58,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import pt.tiago.zerodroid.data.sop.SopDraft
 import pt.tiago.zerodroid.ui.kit.NoSheetInsets
+import pt.tiago.zerodroid.ui.kit.rememberFullSheetState
 import pt.tiago.zerodroid.ui.kit.SheetBody
 import pt.tiago.zerodroid.ui.kit.ZcGhostButton
 import pt.tiago.zerodroid.ui.kit.ZcIconButton
@@ -96,7 +96,7 @@ fun StepSheet(vm: SopEditorViewModel, s: EditorState, n: Int) {
 
     ModalBottomSheet(
         { vm.openStep(null) },
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = rememberFullSheetState(),
         containerColor = ZcTokens.surface,
         contentWindowInsets = NoSheetInsets,
     ) {

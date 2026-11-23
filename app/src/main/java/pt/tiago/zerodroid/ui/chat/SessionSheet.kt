@@ -26,7 +26,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +46,7 @@ import pt.tiago.zerodroid.data.ZeroDroidConnection
 import pt.tiago.zerodroid.data.filterAgents
 import pt.tiago.zerodroid.ui.kit.Avatar
 import pt.tiago.zerodroid.ui.kit.NoSheetInsets
+import pt.tiago.zerodroid.ui.kit.rememberFullSheetState
 import pt.tiago.zerodroid.ui.kit.SectionHeader
 import pt.tiago.zerodroid.ui.kit.SheetBody
 import pt.tiago.zerodroid.ui.kit.SkeletonLines
@@ -97,7 +97,7 @@ fun SessionSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = rememberFullSheetState(),
         containerColor = ZcTokens.surface,
         scrimColor = ZcTokens.scrim,
         dragHandle = { Box(Modifier.padding(top = 10.dp).size(36.dp, 4.dp).background(ZcTokens.hairlineStrong, RoundedCornerShape(2.dp))) },
