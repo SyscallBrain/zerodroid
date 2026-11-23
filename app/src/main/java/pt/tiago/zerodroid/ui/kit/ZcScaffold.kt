@@ -1,6 +1,15 @@
 package pt.tiago.zerodroid.ui.kit
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -84,6 +93,9 @@ fun ZcTopBar(
     }
 }
 
+/** Quiet time after the keyboard's last inset frame before a focused field scrolls into view. */
+private const val KEYBOARD_SETTLE_MS = 80L
+
 /** Single-line or multiline input on `raised`, hairline border that turns cyan when focused. */
 @Composable
 fun ZcTextField(
@@ -102,10 +114,18 @@ fun ZcTextField(
     enabled: Boolean = true,
 ) {
     var focused by remember { mutableStateOf(false) }
+    // The field only scrolls its cursor line into view; once the keyboard settles, show the whole box.
+    val bring = remember { BringIntoViewRequester() }
+    val ime = WindowInsets.ime
+    val density = LocalDensity.current
+    LaunchedEffect(focused) {
+        if (focused) snapshotFlow { ime.getBottom(density) }.collectLatest { delay(KEYBOARD_SETTLE_MS); bring.bringIntoView() }
+    }
     val shape = RoundedCornerShape(ZcTokens.inputRadius)
     val style: TextStyle = (if (mono) ZcType.mono else ZcType.body).copy(color = if (enabled) ZcTokens.text else ZcTokens.faint)
     Row(
         modifier
+            .bringIntoViewRequester(bring)
             .background(ZcTokens.surface, shape)
             .border(1.dp, if (focused) ZcTokens.accentStart.copy(alpha = 0.45f) else ZcTokens.hairlineStrong, shape)
             .padding(horizontal = 14.dp, vertical = 12.dp),
