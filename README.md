@@ -130,8 +130,8 @@ memory all stay on the daemon.
 |:-:|:-:|:-:|
 | ![The welcome screen with the pairing and OIDC options](docs/screenshots/onboarding.jpg) | ![Confirming the pairing code](docs/screenshots/pair-confirm.jpg) | ![The paired daemon, its certificate and the Home shortcut switches](docs/screenshots/pairing-settings.jpg) |
 | Welcome | Compare the code | Paired daemon |
-| ![The OIDC sign-in form with the advanced WSS and gateway URLs](docs/screenshots/oidc-sign-in.jpg) | | |
-| Sign in with OIDC | | |
+| ![The OIDC sign-in form with the advanced WSS and gateway URLs](docs/screenshots/oidc-sign-in.jpg) | ![The This phone section with the Unpair this phone button](docs/screenshots/unpair.jpg) | |
+| Sign in with OIDC | Unpair this phone | |
 
 </details>
 
