@@ -216,10 +216,17 @@ branch on my fork, on top of ZeroClaw's current `master`. You need both
 commits: a daemon with only the chat one keeps your chats but still loses
 your code sessions.
 
-If you run the daemon in Termux on an Android phone, build
+If you run the daemon in Termux on an Android phone, you can build
 [`android-master-zerodroid`](https://github.com/SyscallBrain/zeroclaw/tree/android-master-zerodroid)
-instead. It carries the same two commits plus a fix for the shell tool, which
-fails in Termux because Android's SELinux blocks resolving `/system/bin/sh`.
+instead. It is ZeroClaw's `master` with the same two commits and the two
+other patches below already merged in.
+
+In Termux, use a daemon built from ZeroClaw's `master` from 23 November 2026
+or later. Older builds, the 0.9.0 release included, can't run the shell
+tool there because Android's SELinux blocks resolving `/system/bin/sh`.
+ZeroClaw fixed that upstream in
+[#12080](https://github.com/zeroclaw-labs/zeroclaw/pull/12080), so it no
+longer needs a patch of its own.
 
 Build the daemon from either branch as you would build ZeroClaw. The patch
 only adds a column to each session store, so you can go back to an official

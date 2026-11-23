@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
-// Read models for the `sops/*` RPC surface. Sources (phone branch android-v0.9.0-zerodroid):
+// Read models for the `sops/*` RPC surface. Sources (ZeroClaw master, phone branch android-master-zerodroid):
 // crates/zeroclaw-sop-graph/src/lib.rs (graph), crates/zeroclaw-runtime/src/sop/graph.rs (overlay),
 // crates/zeroclaw-runtime/src/sop/trigger_registry.rs (trigger sources), sop/mod.rs (validation).
 // Every field has a default so a newer daemon adding or dropping optional fields never breaks decoding.
