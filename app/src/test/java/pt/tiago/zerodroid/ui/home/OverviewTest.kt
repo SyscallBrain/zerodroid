@@ -34,21 +34,25 @@ class OverviewTest {
     }
 
     @Test
-    fun cpuNormalisedByCores() {
-        assertEquals("4.1%", cpuMetric(health.process).value)
-        assertEquals("100%", cpuMetric(ProcessStats(cpuPercent = 900.0, numCpus = 8)).value)
-    }
-
-    @Test
-    fun cpuKeepsSmallLoadsVisible() {
-        assertEquals("0%", cpuText(0.0))
-        assertEquals("<0.1%", cpuText(0.04))
-        assertEquals("0.2%", cpuText(0.24))
-        assertEquals("9.9%", cpuText(9.9))
-        assertEquals("10%", cpuText(9.96))
-        assertEquals("42%", cpuText(42.4))
-        // The phone daemon at idle: 1.65 % of one core over 7 cores.
-        assertEquals("0.2%", cpuMetric(ProcessStats(cpuPercent = 1.65, numCpus = 7)).value)
+    fun cpuMatchesZerocode() {
+        // zerocode prints the daemon's cpu_percent as is (summed across cores, like top),
+        // with one decimal; the bar is the share of all cores.
+        val m = cpuMetric(health.process)
+        assertEquals("33.0%", m.value)
+        assertEquals("8 cores", m.suffix)
+        assertEquals(33f / 800f, m.fraction!!, 0.0001f)
+        // The phone daemon at idle, 7 cores.
+        assertEquals("1.6%", cpuMetric(ProcessStats(cpuPercent = 1.6, numCpus = 7)).value)
+        assertEquals("0.0%", cpuMetric(ProcessStats(cpuPercent = 0.0, numCpus = 7)).value)
+        // Rust's {:.1} rounds the exact binary value: 1.65 is 1.6499… so "1.6", where
+        // String.format would say "1.7"; exact ties go to even (0.25 -> "0.2").
+        assertEquals("1.6%", cpuText(1.65))
+        assertEquals("0.2%", cpuText(0.25))
+        assertEquals("12.3%", cpuText(12.345))
+        // Several busy cores read above 100 %, as in zerocode; the bar stops at full.
+        val busy = cpuMetric(ProcessStats(cpuPercent = 900.0, numCpus = 8))
+        assertEquals("900.0%", busy.value)
+        assertEquals(1f, busy.fraction!!, 0f)
     }
 
     @Test

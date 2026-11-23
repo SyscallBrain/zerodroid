@@ -173,7 +173,7 @@ fun HomeScreen(
                     },
                     b = {
                         ZcTile(
-                            "CPU", m.cpu.value, caption = m.cpu.suffix ?: "all cores", stale = m.stale, loading = loading, modifier = it, pinFooter = true,
+                            "CPU", m.cpu.value, caption = m.cpu.suffix, stale = m.stale, loading = loading, modifier = it, pinFooter = true,
                             footer = m.cpu.fraction?.let { f -> { BudgetBar(f) } },
                         )
                     },
