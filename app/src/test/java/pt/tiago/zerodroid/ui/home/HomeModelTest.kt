@@ -165,7 +165,7 @@ class HomeModelTest {
             now, zone,
         )
         assertEquals("142 MB", m.memory.value)
-        assertEquals("4%", m.cpu.value)
+        assertEquals("4.1%", m.cpu.value)
         assertEquals("daemon", m.core.first().key)
         assertEquals(2, m.channels.size)
         assertEquals(listOf("12:00" to "brief"), m.upNext)

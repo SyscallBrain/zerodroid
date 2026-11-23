@@ -33,11 +33,22 @@ fun memoryMetric(p: ProcessStats?): MetricText {
     )
 }
 
+/**
+ * An idle daemon on a phone sits well under 1 % of all cores; rounding that to "0%" reads as
+ * "not measured". One decimal below 10 %, and "<0.1%" for any non-zero trace.
+ */
+internal fun cpuText(pct: Double): String = when {
+    pct <= 0.0 -> "0%"
+    pct < 0.1 -> "<0.1%"
+    pct < 9.95 -> "%.1f%%".format(Locale.ENGLISH, pct)
+    else -> "${pct.roundToInt()}%"
+}
+
 /** `cpu_percent` is summed across cores; normalise to one 0..100 figure. */
 fun cpuMetric(p: ProcessStats?): MetricText {
     val raw = p?.cpuPercent ?: return MetricText(null)
     val pct = (raw / maxOf(p.numCpus, 1)).coerceIn(0.0, 100.0)
-    return MetricText("${pct.roundToInt()}%", if (p.numCpus > 0) "${p.numCpus} cores" else null, (pct / 100).toFloat())
+    return MetricText(cpuText(pct), if (p.numCpus > 0) "${p.numCpus} cores" else null, (pct / 100).toFloat())
 }
 
 enum class Health { Ok, Warn, Error, Unknown }
