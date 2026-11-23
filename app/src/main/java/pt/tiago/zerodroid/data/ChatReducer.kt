@@ -31,6 +31,8 @@ sealed interface ChatItem {
         val output: String?,
         val startedAt: Long,
         val durationMs: Long? = null,
+        /** A file edit or write, kept whole (not cut like [args]) so the card can show a diff. */
+        val edit: FileEdit? = null,
     ) : ChatItem
 
     data class Approval(
@@ -148,7 +150,7 @@ fun reduce(state: ChatState, event: SessionUpdate, now: Long): ChatState = when 
     }
 
     is SessionUpdate.ToolCall -> state.closeStreams().append("c") {
-        ChatItem.Tool(it, event.toolCallId, event.name, argsPreview(event.rawInput), ToolStatus.Running, null, now)
+        ChatItem.Tool(it, event.toolCallId, event.name, argsPreview(event.rawInput), ToolStatus.Running, null, now, edit = fileEditOf(event.name, event.rawInput))
     }.copy(turnRunning = true)
 
     is SessionUpdate.ToolResult -> {
@@ -239,7 +241,7 @@ fun fromHistory(messages: List<MessageEntry>, start: Int = 0, hasOlder: Boolean 
     for (m in messages) {
         s = when (m.kind) {
             "tool_call" -> s.append("h") {
-                ChatItem.Tool(it, m.toolCallId ?: it, m.toolName ?: "tool", argsPreview(m.toolInput), ToolStatus.Ok, null, 0)
+                ChatItem.Tool(it, m.toolCallId ?: it, m.toolName ?: "tool", argsPreview(m.toolInput), ToolStatus.Ok, null, 0, edit = fileEditOf(m.toolName ?: "", m.toolInput))
             }
             "tool_result" -> {
                 val output = truncateForDisplay(m.toolOutput ?: m.content)

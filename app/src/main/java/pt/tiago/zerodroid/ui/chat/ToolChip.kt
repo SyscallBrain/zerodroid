@@ -15,6 +15,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import pt.tiago.zerodroid.data.ChatItem
 import pt.tiago.zerodroid.data.ToolStatus
 import pt.tiago.zerodroid.ui.kit.CodeBlock
@@ -81,7 +83,8 @@ fun ToolChip(item: ChatItem.Tool, modifier: Modifier = Modifier, onOpenCanvas: (
             }
             Spacer(Modifier.width(8.dp))
             Text(item.name, style = ZcType.monoSmall.copy(color = ZcTokens.text))
-            val firstLine = item.args.lineSequence().firstOrNull().orEmpty()
+            // An edit names its file; the full path and the +/− counts are in the open card.
+            val firstLine = item.edit?.path?.substringAfterLast('/') ?: item.args.lineSequence().firstOrNull().orEmpty()
             if (firstLine.isNotBlank() && !open) {
                 Spacer(Modifier.width(6.dp))
                 Text(firstLine, style = ZcType.monoSmall.copy(color = ZcTokens.muted), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -98,7 +101,20 @@ fun ToolChip(item: ChatItem.Tool, modifier: Modifier = Modifier, onOpenCanvas: (
         }
         AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
             Column(Modifier.padding(start = 10.dp, end = 10.dp, bottom = 10.dp)) {
-                if (item.args.isNotBlank()) {
+                val edit = item.edit
+                if (edit != null) {
+                    EditDiff(edit)
+                    var showArgs by rememberSaveable(item.key + ":args") { mutableStateOf(false) }
+                    Text(
+                        if (showArgs) "Hide arguments" else "Show arguments",
+                        style = ZcType.caption.copy(color = ZcTokens.accentStart),
+                        modifier = Modifier.clickable { showArgs = !showArgs }.padding(vertical = 8.dp),
+                    )
+                    if (showArgs) {
+                        CodeBlock(item.args, maxLines = 30)
+                        Spacer(Modifier.height(8.dp))
+                    }
+                } else if (item.args.isNotBlank()) {
                     Text("ARGUMENTS", style = ZcType.label)
                     Spacer(Modifier.height(4.dp))
                     CodeBlock(item.args, maxLines = 30)
@@ -129,6 +145,94 @@ fun ThoughtRow(item: ChatItem.Thought, modifier: Modifier = Modifier) {
         if (open) {
             Spacer(Modifier.height(6.dp))
             Text(item.text.trim(), style = ZcType.small.copy(color = ZcTokens.faint), modifier = Modifier.padding(start = 14.dp))
+        }
+    }
+}
+
+/** Diff rows shown before "N more lines": enough for a big edit, light enough for a phone. */
+private const val MAX_DIFF_ROWS = 300
+
+/** The change as a unified diff: path, +/− counts, removed lines red, added green, unchanged folded. */
+@Composable
+private fun EditDiff(edit: pt.tiago.zerodroid.data.FileEdit) {
+    val lines = androidx.compose.runtime.remember(edit) { pt.tiago.zerodroid.data.lineDiff(edit.old, edit.new) }
+    val rows = androidx.compose.runtime.remember(lines) { pt.tiago.zerodroid.data.foldDiff(lines) }
+    val added = lines.count { it.kind == pt.tiago.zerodroid.data.DiffKind.Added }
+    val removed = lines.count { it.kind == pt.tiago.zerodroid.data.DiffKind.Removed }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            edit.path,
+            style = ZcType.monoSmall.copy(color = ZcTokens.muted),
+            maxLines = 1,
+            overflow = TextOverflow.StartEllipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text("+$added", style = ZcType.monoSmall.copy(color = ZcTokens.success))
+        if (edit.old != null) {
+            Spacer(Modifier.width(6.dp))
+            Text("\u2212$removed", style = ZcType.monoSmall.copy(color = ZcTokens.danger))
+        }
+    }
+    if (edit.old == null) {
+        Text("Whole file written", style = ZcType.caption.copy(color = ZcTokens.faint))
+    }
+    Spacer(Modifier.height(6.dp))
+    val shape = RoundedCornerShape(ZcTokens.chipRadius)
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(ZcTokens.background, shape)
+            .border(1.dp, ZcTokens.hairline, shape),
+    ) {
+        val minRowWidth = maxWidth
+        Column(
+            Modifier
+                .horizontalScroll(androidx.compose.foundation.rememberScrollState())
+                .padding(vertical = 6.dp)
+                .width(androidx.compose.foundation.layout.IntrinsicSize.Max)
+                .widthIn(min = minRowWidth),
+        ) {
+            if (rows.isEmpty()) {
+                Text("No changes", style = ZcType.caption, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+            }
+            rows.take(MAX_DIFF_ROWS).forEach { row -> DiffRowView(row) }
+            if (rows.size > MAX_DIFF_ROWS) {
+                Text(
+                    "\u2026 ${rows.size - MAX_DIFF_ROWS} more lines (Show arguments has the full text)",
+                    style = ZcType.caption.copy(color = ZcTokens.faint),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiffRowView(row: pt.tiago.zerodroid.data.DiffRow) {
+    val mono = ZcType.mono.copy(fontSize = 12.5.sp)
+    when (row) {
+        is pt.tiago.zerodroid.data.DiffRow.Fold -> Text(
+            "\u22EF ${row.hidden} unchanged line${if (row.hidden == 1) "" else "s"}",
+            style = ZcType.caption.copy(color = ZcTokens.faint),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
+        )
+        is pt.tiago.zerodroid.data.DiffRow.Line -> {
+            val (sign, tint, bg) = when (row.line.kind) {
+                pt.tiago.zerodroid.data.DiffKind.Added -> Triple("+", ZcTokens.success, ZcTokens.success.copy(alpha = 0.12f))
+                pt.tiago.zerodroid.data.DiffKind.Removed -> Triple("\u2212", ZcTokens.danger, ZcTokens.danger.copy(alpha = 0.12f))
+                pt.tiago.zerodroid.data.DiffKind.Same -> Triple(" ", ZcTokens.faint, androidx.compose.ui.graphics.Color.Transparent)
+            }
+            Row(Modifier.fillMaxWidth().background(bg).padding(horizontal = 10.dp)) {
+                Text(sign, style = mono.copy(color = tint), modifier = Modifier.width(14.dp))
+                Text(
+                    row.line.text.ifEmpty { " " },
+                    style = mono.copy(color = if (row.line.kind == pt.tiago.zerodroid.data.DiffKind.Same) ZcTokens.muted else ZcTokens.text),
+                    softWrap = false,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }
