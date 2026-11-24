@@ -45,6 +45,22 @@ sealed interface ChatItem {
         val answeredAt: Long? = null,
     ) : ChatItem
 
+    /** A question the agent asked via `elicitation/create` (e.g. `ask_user` with choices). */
+    data class Question(
+        override val key: String,
+        val requestId: String,
+        val message: String,
+        /** Option labels, in order. */
+        val options: List<String>,
+        /** Wire values ("choice-N") paired with [options], sent back on accept. */
+        val consts: List<String>,
+        val multi: Boolean,
+        val status: QuestionStatus,
+        /** Chosen option labels, once answered. */
+        val answer: List<String> = emptyList(),
+        val answeredAt: Long? = null,
+    ) : ChatItem
+
     data class Notice(
         override val key: String,
         val kind: NoticeKind,
@@ -111,10 +127,12 @@ fun addNotice(state: ChatState, kind: NoticeKind, text: String, retry: Boolean =
 
 fun connectionLost(state: ChatState): ChatState {
     val hadWork = state.turnRunning ||
-        state.items.any { it is ChatItem.Approval && it.status == ApprovalStatus.Pending }
+        state.items.any { it is ChatItem.Approval && it.status == ApprovalStatus.Pending } ||
+        state.items.any { it is ChatItem.Question && it.status == QuestionStatus.Pending }
     val items = state.items.map { item ->
         when (item) {
             is ChatItem.Approval -> if (item.status == ApprovalStatus.Pending) item.copy(status = ApprovalStatus.ConnectionLost) else item
+            is ChatItem.Question -> if (item.status == QuestionStatus.Pending) item.copy(status = QuestionStatus.ConnectionLost) else item
             is ChatItem.Tool -> if (item.status == ToolStatus.Running) item.copy(status = ToolStatus.Failed) else item
             else -> item
         }
@@ -127,6 +145,21 @@ fun setApprovalStatus(state: ChatState, requestId: String, status: ApprovalStatu
     state.copy(items = state.items.map {
         if (it is ChatItem.Approval && it.requestId == requestId && it.status == ApprovalStatus.Pending) {
             it.copy(status = status, answeredAt = now)
+        } else it
+    })
+
+/** Appends a question card for a daemon `elicitation/create` request, unless already present. */
+fun questionReceived(state: ChatState, q: PendingQuestion): ChatState {
+    if (state.items.any { it is ChatItem.Question && it.requestId == q.requestId }) return state
+    return state.closeStreams().append("q") {
+        ChatItem.Question(it, q.requestId, q.message, q.options.map { o -> o.title }, q.options.map { o -> o.const }, q.multi, q.status, q.answer, q.answeredAt)
+    }.copy(turnRunning = true)
+}
+
+fun setQuestionStatus(state: ChatState, requestId: String, status: QuestionStatus, answer: List<String>, now: Long): ChatState =
+    state.copy(items = state.items.map {
+        if (it is ChatItem.Question && it.requestId == requestId && it.status == QuestionStatus.Pending) {
+            it.copy(status = status, answer = answer, answeredAt = now)
         } else it
     })
 
@@ -273,6 +306,7 @@ fun prependHistory(state: ChatState, older: ChatState): ChatState {
             is ChatItem.Thought -> it.copy(key = prefix + it.key)
             is ChatItem.Tool -> it.copy(key = prefix + it.key)
             is ChatItem.Approval -> it.copy(key = prefix + it.key)
+            is ChatItem.Question -> it.copy(key = prefix + it.key)
             is ChatItem.Notice -> it.copy(key = prefix + it.key)
         }
     }

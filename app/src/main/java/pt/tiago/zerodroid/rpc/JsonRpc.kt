@@ -21,6 +21,11 @@ sealed interface Inbound {
     data class Response(val id: Long, val result: JsonElement) : Inbound
     data class Failure(val id: Long?, val error: RpcError) : Inbound
     data class Notification(val method: String, val params: JsonElement) : Inbound
+    /**
+     * A request the daemon sent us (e.g. `elicitation/create`). [id] is kept raw — the
+     * daemon uses string ids here — and must be echoed verbatim in the response.
+     */
+    data class Request(val id: JsonElement, val method: String, val params: JsonElement) : Inbound
 }
 
 /** JSON-RPC 2.0 error object. */
@@ -86,12 +91,41 @@ fun decodeInbound(frame: String): Inbound? {
         return Inbound.Failure(id, RpcError(code, message, errorObj["data"]))
     }
 
+    if (hasId && hasMethod) {
+        // A request from the daemon: answer it, echoing the id verbatim.
+        val method = obj["method"]!!.asStringOrNull() ?: return null
+        return Inbound.Request(obj["id"]!!, method, obj["params"] ?: JsonNull)
+    }
+
     if (hasMethod && obj.containsKey("params")) {
         val method = obj["method"]!!.asStringOrNull() ?: return null
         return Inbound.Notification(method, obj["params"]!!)
     }
 
     return null
+}
+
+/** Encodes a response to a daemon request, echoing [id] exactly as received. */
+fun encodeResponse(id: JsonElement, result: JsonElement): String {
+    val obj = buildJsonObject {
+        put("jsonrpc", "2.0")
+        put("id", id)
+        put("result", result)
+    }
+    return ZdJson.encodeToString(JsonObject.serializer(), obj)
+}
+
+/** Encodes an error response to a daemon request, echoing [id] exactly as received. */
+fun encodeErrorResponse(id: JsonElement, code: Int, message: String): String {
+    val obj = buildJsonObject {
+        put("jsonrpc", "2.0")
+        put("id", id)
+        put("error", buildJsonObject {
+            put("code", code)
+            put("message", message)
+        })
+    }
+    return ZdJson.encodeToString(JsonObject.serializer(), obj)
 }
 
 private fun JsonElement.asLongOrNull(): Long? = try {

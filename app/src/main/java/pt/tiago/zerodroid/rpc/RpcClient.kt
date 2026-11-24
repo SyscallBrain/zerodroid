@@ -16,6 +16,9 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.serialization.serializer
 import pt.tiago.zerodroid.rpc.proto.InitializeParams
 import pt.tiago.zerodroid.rpc.proto.InitializeResult
@@ -95,6 +98,12 @@ open class RpcClient(
         replay = 0, extraBufferCapacity = 256, onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
     val notifications: SharedFlow<Inbound.Notification> = _notifications.asSharedFlow()
+
+    /** Requests the daemon sent us (e.g. `elicitation/create`); answer with [respond] / [respondError]. */
+    private val _inboundRequests = MutableSharedFlow<Inbound.Request>(
+        replay = 0, extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val inboundRequests: SharedFlow<Inbound.Request> = _inboundRequests.asSharedFlow()
 
     private val pending = ConcurrentHashMap<Long, CompletableDeferred<JsonElement>>()
     private val nextId = AtomicLong(1)
@@ -179,8 +188,20 @@ open class RpcClient(
         initId = id
         val ident = identity()
         initSentIdentity = ident != null
-        val params = InitializeParams(authToken = token().orEmpty(), tuiId = ident?.tuiId, tuiSig = ident?.tuiSig, authProvider = authProvider())
+        val params = InitializeParams(authToken = token().orEmpty(), clientCapabilities = CLIENT_CAPABILITIES, tuiId = ident?.tuiId, tuiSig = ident?.tuiSig, authProvider = authProvider())
         h.send(encodeRequest(id, "initialize", ZdJson.encodeToJsonElement(InitializeParams.serializer(), params)))
+    }
+
+    /** Answers a request the daemon sent us; [id] must be the request's id, echoed verbatim. */
+    fun respond(id: JsonElement, result: JsonElement): Boolean {
+        val h = handle ?: return false
+        return h.send(encodeResponse(id, result))
+    }
+
+    /** Rejects a request the daemon sent us; [id] must be the request's id, echoed verbatim. */
+    fun respondError(id: JsonElement, code: Int, message: String): Boolean {
+        val h = handle ?: return false
+        return h.send(encodeErrorResponse(id, code, message))
     }
 
     /** The daemon's refusal of the identity itself, not of the token: retried without it. */
@@ -191,6 +212,7 @@ open class RpcClient(
     private fun onFrame(gen: Long, line: String) {
         when (val inbound = decodeInbound(line) ?: return) {
             is Inbound.Notification -> _notifications.tryEmit(inbound)
+            is Inbound.Request -> _inboundRequests.tryEmit(inbound)
             is Inbound.Response -> if (inbound.id == initId) {
                 val info = runCatching {
                     ZdJson.decodeFromJsonElement(InitializeResult.serializer(), inbound.result)
@@ -305,7 +327,7 @@ open class RpcClient(
         val h = handle ?: throw NotConnectedException()
         val id = nextId.getAndIncrement()
         val ident = identity()
-        val params = InitializeParams(authToken = token().orEmpty(), tuiId = ident?.tuiId, tuiSig = ident?.tuiSig, authProvider = authProvider())
+        val params = InitializeParams(authToken = token().orEmpty(), clientCapabilities = CLIENT_CAPABILITIES, tuiId = ident?.tuiId, tuiSig = ident?.tuiSig, authProvider = authProvider())
         val deferred = CompletableDeferred<JsonElement>()
         pending[id] = deferred
         reinitIds.add(id)
@@ -329,6 +351,17 @@ open class RpcClient(
 
     companion object {
         private const val MIN_RETRY_MS = 750L
+
+        /**
+         * Advertised on `initialize` so the daemon routes `ask_user`-style questions to this
+         * client as `elicitation/create` requests. Form mode only — free-form text is not
+         * supported by the RPC channel (Phase 2 of the daemon's elicitation rollout).
+         */
+        val CLIENT_CAPABILITIES: JsonObject = buildJsonObject {
+            put("elicitation", buildJsonObject {
+                put("form", buildJsonObject {})
+            })
+        }
 
         /** The daemon's `initialize` messages for a refused identity (AUTH_REQUIRED, like a bad token). */
         private val IDENTITY_REFUSALS = listOf("Invalid TUI signature", "TUI signature required")

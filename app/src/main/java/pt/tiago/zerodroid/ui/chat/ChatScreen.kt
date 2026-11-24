@@ -59,6 +59,7 @@ import kotlinx.coroutines.delay
 import pt.tiago.zerodroid.data.ApprovalStatus
 import pt.tiago.zerodroid.data.ChatItem
 import pt.tiago.zerodroid.data.NoticeKind
+import pt.tiago.zerodroid.data.QuestionStatus
 import pt.tiago.zerodroid.data.ToolStatus
 import pt.tiago.zerodroid.rpc.ConnState
 import pt.tiago.zerodroid.ui.kit.Avatar
@@ -276,6 +277,7 @@ private fun LiveLine(running: Boolean, last: ChatItem?, conn: ConnState) {
         conn !is ConnState.Ready -> null
         running && last is ChatItem.Tool && last.status == ToolStatus.Running -> "running ${last.name}"
         running && last is ChatItem.Approval && last.status == ApprovalStatus.Pending -> "waiting for you"
+        running && last is ChatItem.Question && last.status == QuestionStatus.Pending -> "waiting for you"
         running && last is ChatItem.Thought -> "thinking"
         running -> "working"
         else -> null
@@ -311,6 +313,19 @@ private fun ChatRow(item: ChatItem, vm: ChatViewModel, modifier: Modifier, onOpe
             answeredAt = item.answeredAt,
             onDecide = { vm.decide(item.requestId, it) },
             modifier = modifier,
+        )
+        is ChatItem.Question -> ElicitationCard(
+            message = item.message,
+            options = item.options,
+            consts = item.consts,
+            multi = item.multi,
+            status = item.status,
+            answer = item.answer,
+            answeredAt = item.answeredAt,
+            onAnswer = { vm.answerQuestion(item.requestId, it) },
+            onDismiss = { vm.cancelQuestion(item.requestId) },
+            modifier = modifier,
+            agentAlias = vm.agentAlias,
         )
         is ChatItem.Notice -> NoticeRow(item, vm, modifier)
     }

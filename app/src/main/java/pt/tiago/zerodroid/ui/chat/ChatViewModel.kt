@@ -22,6 +22,7 @@ class ChatViewModel(
     val session: ChatSession,
     private val approvals: ApprovalCenter = ZeroDroidConnection.approvals,
     val connection: StateFlow<ConnState> = ZeroDroidConnection.state,
+    private val elicitation: pt.tiago.zerodroid.data.ElicitationCenter = ZeroDroidConnection.elicitation,
 ) : ViewModel() {
     val sessionId: String get() = session.sessionId
     val agentAlias: String get() = session.agentAlias
@@ -111,6 +112,32 @@ class ChatViewModel(
             approvals.decide(requestId, decision).onFailure { t ->
                 _toast.value = when (t) {
                     is ApprovalExpiredException -> "Expired, denied by the daemon"
+                    else -> "Not sent: ${t.userMessage()}"
+                }
+            }
+        }
+    }
+
+    /** Answers an `elicitation/create` question with the chosen option consts. */
+    fun answerQuestion(requestId: String, selectedConsts: List<String>) {
+        viewModelScope.launch {
+            elicitation.answer(requestId, selectedConsts).onFailure { t ->
+                _toast.value = when (t) {
+                    is pt.tiago.zerodroid.data.ElicitationExpiredException -> "Expired, cancelled"
+                    is pt.tiago.zerodroid.data.ElicitationAnsweredException -> "Already answered"
+                    else -> "Not sent: ${t.userMessage()}"
+                }
+            }
+        }
+    }
+
+    /** Dismisses an `elicitation/create` question (answers `cancel`). */
+    fun cancelQuestion(requestId: String) {
+        viewModelScope.launch {
+            elicitation.cancel(requestId).onFailure { t ->
+                _toast.value = when (t) {
+                    is pt.tiago.zerodroid.data.ElicitationExpiredException -> "Expired, cancelled"
+                    is pt.tiago.zerodroid.data.ElicitationAnsweredException -> "Already answered"
                     else -> "Not sent: ${t.userMessage()}"
                 }
             }

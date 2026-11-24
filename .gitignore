@@ -22,3 +22,6 @@ dist/
 .DS_Store
 Thumbs.db
 .superpowers/
+
+# Local-only agent rules; never commit
+AGENTS.md

@@ -72,7 +72,15 @@ object ZeroDroidConnection {
 
     val rpc = ClientCaller { _client.value }
     val approvals = ApprovalCenter(rpc)
-    val chats = ChatSessions(rpc, approvals, scope)
+    /** Answers the daemon's `elicitation/create` requests on whatever client is live. */
+    private val elicitationTransport = object : ElicitationTransport {
+        override fun respond(id: kotlinx.serialization.json.JsonElement, result: kotlinx.serialization.json.JsonElement): Boolean =
+            _client.value?.respond(id, result) == true
+        override fun respondError(id: kotlinx.serialization.json.JsonElement, code: Int, message: String): Boolean =
+            _client.value?.respondError(id, code, message) == true
+    }
+    val elicitation = ElicitationCenter(elicitationTransport)
+    val chats = ChatSessions(rpc, approvals, scope, elicitation = elicitation)
     val sessions = SessionsRepository(rpc)
     val sopGates = SopGates(rpc)
     val sops = pt.tiago.zerodroid.data.sop.SopRepository(rpc)
@@ -92,9 +100,11 @@ object ZeroDroidConnection {
     lateinit var canvas: pt.tiago.zerodroid.data.canvas.CanvasArchive
         private set
 
-    /** True while a phone-started turn runs or an approval waits: keep the socket up in the background. */
+    /** True while a phone-started turn runs, an approval or a question waits: keep the socket up in the background. */
     val holdForeground: StateFlow<Boolean> =
-        combine(chats.running, approvals.pendingCount) { running, pending -> running.isNotEmpty() || pending > 0 }
+        combine(chats.running, approvals.pendingCount, elicitation.pendingCount) { running, approvals, questions ->
+            running.isNotEmpty() || approvals > 0 || questions > 0
+        }
             .distinctUntilChanged()
             .stateIn(scope, SharingStarted.Eagerly, false)
 
@@ -122,6 +132,7 @@ object ZeroDroidConnection {
     private val startLock = Mutex()
     private var stateJob: Job? = null
     private var notifyJob: Job? = null
+    private var reqJob: Job? = null
     private var backgroundJob: Job? = null
     @Volatile private var foreground = false
     private val _foregroundState = MutableStateFlow(false)
@@ -157,6 +168,7 @@ object ZeroDroidConnection {
         scope.launch {
             while (isActive) {
                 approvals.expireDue()
+                elicitation.expireDue()
                 delay(1_000)
             }
         }
@@ -197,6 +209,7 @@ object ZeroDroidConnection {
         gate.onRenewed()
         identity = loadIdentity(profile)
         approvals.clear()
+        elicitation.clear()
         chats.clear()
         _phase.value = AppPhase.Paired(profile)
         scheduleExpiry(profile)
@@ -411,8 +424,19 @@ object ZeroDroidConnection {
     private fun observe(c: RpcClient, profile: DaemonProfile) {
         stateJob?.cancel()
         notifyJob?.cancel()
+        reqJob?.cancel()
         notifyJob = scope.launch {
             c.notifications.collect { n -> if (n.method == "session/update") chats.dispatch(n.params) }
+        }
+        // Requests the daemon sends us (elicitation/create from ask_user); answer them or refuse fast.
+        reqJob = scope.launch {
+            c.inboundRequests.collect { req ->
+                if (req.method == "elicitation/create") {
+                    elicitation.onRequest(req)?.let { q -> chats.dispatchQuestion(q) }
+                } else {
+                    c.respondError(req.id, pt.tiago.zerodroid.rpc.RpcCodes.METHOD_NOT_FOUND, "Unsupported request: ${req.method}")
+                }
+            }
         }
         stateJob = scope.launch {
             var wasReady = false
@@ -431,6 +455,7 @@ object ZeroDroidConnection {
                         if (wasReady) {
                             chats.onConnectionLost()
                             approvals.onConnectionLost()
+                            elicitation.onConnectionLost()
                         }
                         wasReady = false
                         val cause = (s as? ConnState.Backoff)?.cause ?: (s as ConnState.AuthFailed).message
@@ -457,6 +482,7 @@ object ZeroDroidConnection {
     private fun stopClient(quiet: Boolean = false) {
         stateJob?.cancel()
         notifyJob?.cancel()
+        reqJob?.cancel()
         _client.value?.stop()
         _client.value = null
         if (!quiet && _state.value is ConnState.Ready) {

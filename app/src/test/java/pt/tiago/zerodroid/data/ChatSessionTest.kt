@@ -46,6 +46,21 @@ class ChatSessionTest {
     }
 
     @Test
+    fun reconnectReattachesSessionBeforeReload() = runTest(UnconfinedTestDispatcher()) {
+        val rpc = FakeCaller().apply {
+            on("session/new", """{"session_id":"s","agent_alias":"main","message_count":0}""")
+            on("session/messages", history)
+            on("session/state", """{"session_id":"s","state":"idle"}""")
+        }
+        val chats = ChatSessions(rpc, ApprovalCenter(rpc), backgroundScope)
+        chats.get("s", "main")
+        chats.onReconnected()
+        // session/new (re-attach → daemon rebinds the rpc tool channel) must precede the reads.
+        assertEquals(listOf("session/new", "session/messages", "session/state"), rpc.methods())
+        assertEquals("""{"agent_alias":"main","session_id":"s","keep_siblings":true}""", rpc.sent.first().json)
+    }
+
+    @Test
     fun reconnectRebuildsFromHistory() = runTest(UnconfinedTestDispatcher()) {
         val rpc = FakeCaller().apply {
             on("session/messages", history)

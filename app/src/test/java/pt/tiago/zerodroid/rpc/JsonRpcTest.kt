@@ -2,6 +2,7 @@ package pt.tiago.zerodroid.rpc
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -55,5 +56,45 @@ class JsonRpcTest {
         assertNull(decodeInbound("not json"))
         assertNull(decodeInbound("{}"))
         assertNull(decodeInbound("""{"jsonrpc":"2.0"}"""))
+    }
+
+    @Test
+    fun decodesDaemonRequestWithStringId() {
+        val inbound = decodeInbound("""{"jsonrpc":"2.0","id":"req-42","method":"elicitation/create","params":{"sessionId":"s1","mode":"form"}}""")
+        assertTrue(inbound is Inbound.Request)
+        val r = inbound as Inbound.Request
+        assertEquals("req-42", r.id.toString().trim('"'))
+        assertEquals("elicitation/create", r.method)
+        assertEquals("s1", json.parseToJsonElement(r.params.toString()).jsonObject["sessionId"].toString().trim('"'))
+    }
+
+    @Test
+    fun decodesDaemonRequestWithoutParams() {
+        val inbound = decodeInbound("""{"jsonrpc":"2.0","id":7,"method":"ping"}""")
+        assertTrue(inbound is Inbound.Request)
+        val r = inbound as Inbound.Request
+        assertEquals("7", r.id.toString())
+        assertEquals(kotlinx.serialization.json.JsonNull, r.params)
+    }
+
+    @Test
+    fun encodeResponseEchoesStringIdVerbatim() {
+        val frame = encodeResponse(kotlinx.serialization.json.JsonPrimitive("req-42"), kotlinx.serialization.json.buildJsonObject {
+            put("action", "accept")
+        })
+        val obj = json.parseToJsonElement(frame).jsonObject
+        assertEquals("2.0", obj["jsonrpc"].toString().trim('"'))
+        assertEquals("req-42", obj["id"].toString().trim('"'))
+        assertEquals("accept", obj["result"]!!.jsonObject["action"].toString().trim('"'))
+        assertTrue("response must not carry a method", !obj.containsKey("method"))
+    }
+
+    @Test
+    fun encodeErrorResponseEchoesId() {
+        val frame = encodeErrorResponse(kotlinx.serialization.json.JsonPrimitive("req-9"), RpcCodes.METHOD_NOT_FOUND, "nope")
+        val obj = json.parseToJsonElement(frame).jsonObject
+        assertEquals("req-9", obj["id"].toString().trim('"'))
+        assertEquals(-32601, obj["error"]!!.jsonObject["code"].toString().toInt())
+        assertEquals("nope", obj["error"]!!.jsonObject["message"].toString().trim('"'))
     }
 }

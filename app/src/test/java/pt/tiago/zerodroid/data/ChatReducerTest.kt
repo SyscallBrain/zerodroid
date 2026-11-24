@@ -65,6 +65,41 @@ class ChatReducerTest {
         assertEquals(ApprovalStatus.Pending, a.status)
     }
 
+    private fun question(id: String = "r1") = PendingQuestion(
+        requestId = id, id = JsonPrimitive(id), sessionId = "s", message = "Continue?",
+        property = "choice", multi = false,
+        options = listOf(
+            pt.tiago.zerodroid.rpc.proto.ElicitationOption("choice-0", "Yes"),
+            pt.tiago.zerodroid.rpc.proto.ElicitationOption("choice-1", "No"),
+        ),
+        deadlineAt = 1_000 + 300_000, status = QuestionStatus.Pending,
+    )
+
+    @Test
+    fun questionReceivedAppendsCardAndResolutionUpdatesIt() {
+        var s = questionReceived(ChatState(), question())
+        val q = s.items.filterIsInstance<ChatItem.Question>().single()
+        assertEquals("Continue?", q.message)
+        assertEquals(listOf("Yes", "No"), q.options)
+        assertEquals(listOf("choice-0", "choice-1"), q.consts)
+        assertEquals(QuestionStatus.Pending, q.status)
+        assertTrue(s.turnRunning)
+        // Same request again does not duplicate the card.
+        s = questionReceived(s, question())
+        assertEquals(1, s.items.count { it is ChatItem.Question })
+        s = setQuestionStatus(s, "r1", QuestionStatus.Answered, listOf("No"), 2_000)
+        val done = s.items.filterIsInstance<ChatItem.Question>().single()
+        assertEquals(QuestionStatus.Answered, done.status)
+        assertEquals(listOf("No"), done.answer)
+        assertEquals(2_000L, done.answeredAt)
+    }
+
+    @Test
+    fun connectionLostMarksPendingQuestion() {
+        val s = connectionLost(questionReceived(ChatState(), question()))
+        assertEquals(QuestionStatus.ConnectionLost, s.items.filterIsInstance<ChatItem.Question>().single().status)
+    }
+
     @Test
     fun unknownEventIsIgnored() {
         val s = localPrompt(ChatState(), "hi")

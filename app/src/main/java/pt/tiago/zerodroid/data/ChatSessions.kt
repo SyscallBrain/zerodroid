@@ -98,6 +98,15 @@ class ChatSession(
         _state.update { setApprovalStatus(it, requestId, status, clock()) }
     }
 
+    /** A daemon `elicitation/create` arrived for this session: show the question card. */
+    fun onQuestion(q: PendingQuestion) {
+        _state.update { questionReceived(it, q) }
+    }
+
+    fun onQuestionResolved(r: QuestionResolution) {
+        _state.update { setQuestionStatus(it, r.requestId, r.status, r.answer, clock()) }
+    }
+
     fun onConnectionLost() {
         promptJob?.cancel()
         _state.update { connectionLost(it) }
@@ -255,10 +264,22 @@ class ChatSession(
         block()
     } catch (e: RpcException) {
         if (e.error.code != RpcCodes.SESSION_NOT_FOUND && e.error.code != RpcCodes.SESSION_NOT_OWNED) throw e
-        // A plain re-attach of a Code session would ask the daemon for a chat under the same id.
-        val params = if (code) SessionNewParams.code(agentAlias, sessionId = sessionId) else SessionNewParams(agentAlias = agentAlias, sessionId = sessionId)
-        rpc.callWith("session/new", params)
+        reattach()
         block()
+    }
+
+    /**
+     * `session/new` with the same id resumes the session on the current connection. The daemon
+     * only rebinds this client's `rpc` tool channel (approvals, `ask_user`/`poll` elicitation)
+     * on session create/resume, so after a reconnect the channel would still point at the dead
+     * socket and those tools would fail with "Writer task closed".
+     */
+    suspend fun reattach() {
+        runCatching {
+            // A plain re-attach of a Code session would ask the daemon for a chat under the same id.
+            val params = if (code) SessionNewParams.code(agentAlias, sessionId = sessionId) else SessionNewParams(agentAlias = agentAlias, sessionId = sessionId)
+            rpc.callWith("session/new", params)
+        }
     }
 }
 
@@ -268,6 +289,7 @@ class ChatSessions(
     private val approvals: ApprovalCenter,
     private val scope: CoroutineScope,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val elicitation: ElicitationCenter = ElicitationCenter(ElicitationCenter.NoopTransport),
 ) {
     private val sessions = java.util.concurrent.ConcurrentHashMap<String, ChatSession>()
     /** Set once the app has a files dir; sessions created afterwards keep copies of sent images. */
@@ -281,6 +303,9 @@ class ChatSessions(
     init {
         scope.launch {
             approvals.resolutions.collect { r -> sessions[r.sessionId]?.onApprovalResolved(r.requestId, r.status) }
+        }
+        scope.launch {
+            elicitation.resolutions.collect { r -> sessions[r.sessionId]?.onQuestionResolved(r) }
         }
     }
 
@@ -314,9 +339,14 @@ class ChatSessions(
         sessions[id]?.onUpdate(event)
     }
 
+    /** Routes a parsed `elicitation/create` question to its chat, when that chat is known here. */
+    fun dispatchQuestion(q: PendingQuestion) {
+        sessions[q.sessionId]?.onQuestion(q)
+    }
+
     fun onConnectionLost() = sessions.values.forEach { it.onConnectionLost() }
 
-    fun onReconnected() = sessions.values.forEach { s -> scope.launch { s.reload() } }
+    fun onReconnected() = sessions.values.forEach { s -> scope.launch { s.reattach(); s.reload() } }
 
     fun stopAll() = _running.value.keys.forEach { id -> sessions[id]?.stop() }
 

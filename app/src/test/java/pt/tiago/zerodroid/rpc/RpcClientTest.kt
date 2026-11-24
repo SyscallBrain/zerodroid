@@ -10,7 +10,9 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -111,6 +113,84 @@ class RpcClientTest {
         transport.listener!!.onText("""{"jsonrpc":"2.0","method":"session/update","params":{"type":"agent_message_chunk"}}""")
         advanceTimeBy(1)
         assertEquals("session/update", collected.first().method)
+        job.cancel(); client.stop()
+    }
+
+    @Test
+    fun initializeAdvertisesElicitationFormCapability() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val client = RpcClient(transport, "wss://x/", { "tok" }, this)
+        client.start()
+        // The daemon renames this one field to camelCase on the wire; snake_case would be ignored.
+        val params = initParams(transport)
+        assertFalse(params.containsKey("client_capabilities"))
+        val caps = params["clientCapabilities"]!!.jsonObject
+        assertTrue(caps["elicitation"]!!.jsonObject.containsKey("form"))
+        client.stop()
+    }
+
+    @Test
+    fun inboundRequestsAreEmittedAndAnsweredWithEchoedId() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val client = RpcClient(transport, "wss://x/", { "tok" }, this)
+        client.start()
+        val initId = ZdJson.parseToJsonElement(transport.sent.first()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
+        transport.listener!!.onText(initReply(initId))
+        assertTrue(client.state.first() is ConnState.Ready)
+
+        val collected = mutableListOf<Inbound.Request>()
+        val job = launch { client.inboundRequests.first { collected.add(it); true } }
+        transport.listener!!.onText("""{"jsonrpc":"2.0","id":"req-1","method":"elicitation/create","params":{"sessionId":"s","mode":"form","message":"?","requestedSchema":{}}}""")
+        advanceTimeBy(1)
+        assertEquals("elicitation/create", collected.first().method)
+
+        assertTrue(client.respond(collected.first().id, kotlinx.serialization.json.buildJsonObject { put("action", "cancel") }))
+        val response = ZdJson.parseToJsonElement(transport.sent.last()).jsonObject
+        assertEquals("req-1", response["id"]!!.jsonPrimitive.content)
+        assertEquals("cancel", response["result"]!!.jsonObject["action"]!!.jsonPrimitive.content)
+        assertFalse(response.containsKey("method"))
+
+        assertTrue(client.respondError(collected.first().id, RpcCodes.METHOD_NOT_FOUND, "nope"))
+        val err = ZdJson.parseToJsonElement(transport.sent.last()).jsonObject
+        assertEquals("req-1", err["id"]!!.jsonPrimitive.content)
+        assertEquals(-32601, err["error"]!!.jsonObject["code"]!!.jsonPrimitive.content.toInt())
+        job.cancel(); client.stop()
+    }
+
+    @Test
+    fun multiSelectElicitationRoundTrip() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val client = RpcClient(transport, "wss://x/", { "tok" }, this)
+        client.start()
+        val initId = ZdJson.parseToJsonElement(transport.sent.first()).jsonObject["id"]!!.jsonPrimitive.content.toLong()
+        transport.listener!!.onText(initReply(initId))
+        assertTrue(client.state.first() is ConnState.Ready)
+
+        // Daemon sends a multi-select elicitation/create (poll with multi_select on channel rpc).
+        val schema = """{"type":"object","properties":{"choices":{"type":"array","minItems":1,"maxItems":3,"items":{"anyOf":[{"const":"choice-0","title":"Red"},{"const":"choice-1","title":"Green"},{"const":"choice-2","title":"Blue"}]}}},"required":["choices"]}"""
+        val req = """{"jsonrpc":"2.0","id":"zc-req-7","method":"elicitation/create","params":{"sessionId":"s","mode":"form","message":"Pick colors","requestedSchema":$schema}}"""
+        val collected = mutableListOf<Inbound.Request>()
+        val job = launch { client.inboundRequests.first { collected.add(it); true } }
+        transport.listener!!.onText(req)
+        advanceTimeBy(1)
+        val r = collected.first()
+        assertEquals("zc-req-7", r.id.jsonPrimitive.content)
+
+        // Answer accept with two consts; the frame must echo the string id and carry a choices array.
+        val result = kotlinx.serialization.json.buildJsonObject {
+            put("action", "accept")
+            put("content", kotlinx.serialization.json.buildJsonObject {
+                put("choices", kotlinx.serialization.json.buildJsonArray {
+                    add(kotlinx.serialization.json.JsonPrimitive("choice-0"))
+                    add(kotlinx.serialization.json.JsonPrimitive("choice-2"))
+                })
+            })
+        }
+        assertTrue(client.respond(r.id, result))
+        val response = ZdJson.parseToJsonElement(transport.sent.last()).jsonObject
+        assertEquals("zc-req-7", response["id"]!!.jsonPrimitive.content)
+        val content = response["result"]!!.jsonObject["content"]!!.jsonObject
+        assertEquals(listOf("choice-0", "choice-2"), content["choices"]!!.jsonArray.map { it.jsonPrimitive.content })
         job.cancel(); client.stop()
     }
 

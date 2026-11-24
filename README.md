@@ -99,6 +99,11 @@ memory all stay on the daemon.
 - **Approvals**: when an agent asks for permission, approve or deny from the
   Inbox or straight from the notification. Nothing is ever approved without
   your tap.
+- **Questions from the agent**: when an agent calls `ask_user` with `choices`
+  (or `poll`), the chat shows a card with the question and one button per
+  choice. Tapping a choice sends it back and the tool call returns it. See
+  [Agent questions: choices vs free text](#agent-questions-choices-vs-free-text)
+  for what works and what does not.
 - **Runs in the background**: a running turn keeps its connection through a
   foreground service, so it is not cancelled when you switch apps.
 - **Config**: every daemon setting, grouped and searchable, edited with the
@@ -114,14 +119,14 @@ memory all stay on the daemon.
 
 ## Screenshots
 
-| | | |
-|:-:|:-:|:-:|
-| ![Home with the daemon status and the shortcuts list](docs/screenshots/home.jpg) | ![Home with scheduled jobs and pinned agents](docs/screenshots/home-agents.jpg) | ![The list of chats](docs/screenshots/chats.jpg) |
-| Home | Up next and pinned agents | Chats |
-| ![A chat streaming tool calls](docs/screenshots/chat-working.jpg) | ![A tool call opened with its arguments and output](docs/screenshots/tool-call.jpg) | ![Picking an agent for a new chat](docs/screenshots/new-chat.jpg) |
-| A turn running | Tool call details | New chat |
-| ![The chat menu with the model, display options and actions](docs/screenshots/chat-menu.jpg) | ![Choosing the folder for a code session](docs/screenshots/folder-picker.jpg) | ![The web fetch settings](docs/screenshots/config-web-fetch.jpg) |
-| Chat menu | Choose a folder | Editing a setting |
+|                                                                                              |                                                                                     |                                                                   |
+| :------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------: | :---------------------------------------------------------------: |
+|       ![Home with the daemon status and the shortcuts list](docs/screenshots/home.jpg)       |   ![Home with scheduled jobs and pinned agents](docs/screenshots/home-agents.jpg)   |         ![The list of chats](docs/screenshots/chats.jpg)          |
+|                                             Home                                             |                              Up next and pinned agents                              |                               Chats                               |
+|              ![A chat streaming tool calls](docs/screenshots/chat-working.jpg)               | ![A tool call opened with its arguments and output](docs/screenshots/tool-call.jpg) | ![Picking an agent for a new chat](docs/screenshots/new-chat.jpg) |
+|                                        A turn running                                        |                                  Tool call details                                  |                             New chat                              |
+| ![The chat menu with the model, display options and actions](docs/screenshots/chat-menu.jpg) |    ![Choosing the folder for a code session](docs/screenshots/folder-picker.jpg)    | ![The web fetch settings](docs/screenshots/config-web-fetch.jpg)  |
+|                                          Chat menu                                           |                                   Choose a folder                                   |                         Editing a setting                         |
 
 <details>
 <summary>Pairing and sign-in</summary>
@@ -275,6 +280,36 @@ own CPU time in `/proc/self/stat` measured against the clock, and to the
 number of CPUs the process may run on. `android-master-zerodroid` already
 includes this patch. It changes no stored data.
 
+### Agent questions: choices vs free text
+
+When an agent wants to ask you something, it calls `ask_user` (or `poll`) on
+the daemon. Over the RPC connection the daemon sends the question to the
+phone as an `elicitation/create` request, and ZeroDroid shows it as a card
+in the chat with one button per choice. Multi-select polls let you pick
+several options and confirm with Send.
+
+What works:
+
+- Picking a choice sends it back to the daemon, and the agent's tool call
+  returns your choice as its answer.
+- This also works after the app reconnects. The app re-attaches each open
+  session on reconnect, so the daemon points the question channel at the new
+  connection. Without that, questions would fail with `Writer task closed`.
+
+What does not work yet, and why:
+
+- **A free-text answer cannot be the tool's answer.** On the RPC channel the
+  daemon only accepts one of the listed choices. If the question is dismissed
+  (Dismiss), the tool returns an error (`did not complete the structured
+  choice...`). This is a daemon limit: ACP elicitation "phase 2" (free-form
+  questions) is not in ZeroClaw 0.9.0. The app cannot change this.
+- `ask_user` **without** `choices` fails on the RPC channel for the same
+  reason. The agent must pass `choices`.
+
+So the card has only the choice buttons and Dismiss — there is no text field
+for a custom answer. When the daemon ships phase 2, the app will add a text
+field to this card.
+
 ## Pairing
 
 The phone needs two things from the daemon: a client certificate from the
@@ -355,8 +390,8 @@ provider's device grant (with PKCE) and signs the certificate instead, and the
 token is the provider's access token, sent with `auth_provider = "oidc.<alias>"`.
 
 A turn on the daemon belongs to the connection that started it, so the app
-keeps that connection alive in a foreground service while a turn or an
-approval is pending. Samsung and some other vendors freeze background apps
+keeps that connection alive in a foreground service while a turn, an approval
+or an agent question is pending. Samsung and some other vendors freeze background apps
 anyway; turning off battery optimisation for ZeroDroid (Config → ZeroDroid &
 pairing) helps.
 

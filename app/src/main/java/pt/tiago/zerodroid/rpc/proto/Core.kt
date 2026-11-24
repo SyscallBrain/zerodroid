@@ -10,7 +10,9 @@ import kotlinx.serialization.json.JsonObject
 data class InitializeParams(
     @SerialName("auth_token") val authToken: String,
     @SerialName("protocol_version") val protocolVersion: Int = 1,
-    @SerialName("client_capabilities") val clientCapabilities: JsonObject? = null,
+    // camelCase on the wire: the daemon's InitializeParams renames this one field explicitly
+    // (zeroclaw-rpc-proto types.rs `rename = "clientCapabilities"`); snake_case is ignored there.
+    @SerialName("clientCapabilities") val clientCapabilities: JsonObject? = null,
     /** Identity from a previous `initialize`; presenting it keeps session ownership across reconnects. */
     @SerialName("tui_id") val tuiId: String? = null,
     @SerialName("tui_sig") val tuiSig: String? = null,
