@@ -41,7 +41,7 @@ memory all stay on the daemon.
 ## Features
 
 - **Home**: the daemon at a glance. Memory, CPU, uptime and active sessions,
-  shortcuts to Automation, Workflows, Canvas and Doctor (whichever needs a
+  shortcuts to Automation, Workflows, Canvas, Doctor and Skills (whichever needs a
   look, a failed job or a doctor error, comes first), which subsystems and
   channels are running, today's spend, the next scheduled jobs, and your
   agents with pinned favourites at the top. Each shortcut can be hidden.
@@ -96,12 +96,26 @@ memory all stay on the daemon.
   that opens that entry in Config. Home shows the last run's result; the
   doctor never runs on its own, only when you ask (Doctor on Home, or
   Config → Doctor).
+- **Skills**: the daemon's skills per agent, like the web dashboard's Skills
+  page. Pick an agent with the chip on top (its monogram avatar is the same
+  as in the agents list), search, and see the agent's skills grouped by
+  bundle — each bundle chip gets its own stable color — plus its workspace
+  skills, listed read-only. Bundle skills open an editor for the SKILL.md
+  frontmatter fields (description, license, author, version, category, tags,
+  always-inline) and the Markdown body, with save and delete, all through the
+  daemon's `skills/*` RPC. Skills come from the bundles assigned to the agent
+  (`agents.<alias>.skill_bundles`) and its workspace `skills/` directory;
+  built-in, plugin and open-skills entries are only visible in the web
+  dashboard, which reads them over HTTP. The Home shortcut can be hidden like
+  the others.
 - **Approvals**: when an agent asks for permission, approve or deny from the
   Inbox or straight from the notification. Nothing is ever approved without
   your tap.
 - **Questions from the agent**: when an agent calls `ask_user` with `choices`
   (or `poll`), the chat shows a card with the question and one button per
-  choice. Tapping a choice sends it back and the tool call returns it. See
+  choice (multi-select polls get checkboxes plus a Send button). Tapping a
+  choice sends it back and the tool call returns it. See the
+  [screenshots](#agent-questions) and
   [Agent questions: choices vs free text](#agent-questions-choices-vs-free-text)
   for what works and what does not.
 - **Runs in the background**: a running turn keeps its connection through a
@@ -135,8 +149,11 @@ memory all stay on the daemon.
 |:-:|:-:|:-:|
 | ![The welcome screen with the pairing and OIDC options](docs/screenshots/onboarding.jpg) | ![Confirming the pairing code](docs/screenshots/pair-confirm.jpg) | ![The paired daemon, its certificate and the Home shortcut switches](docs/screenshots/pairing-settings.jpg) |
 | Welcome | Compare the code | Paired daemon |
-| ![The OIDC sign-in form with the advanced WSS and gateway URLs](docs/screenshots/oidc-sign-in.jpg) | ![The This phone section with the Unpair this phone button](docs/screenshots/unpair.jpg) | |
-| Sign in with OIDC | Unpair this phone | |
+
+| | |
+|:-:|:-:|
+| ![The OIDC sign-in form with the advanced WSS and gateway URLs](docs/screenshots/oidc-sign-in.jpg) | ![The This phone section with the Unpair this phone button](docs/screenshots/unpair.jpg) |
+| Sign in with OIDC | Unpair this phone |
 
 </details>
 
@@ -153,26 +170,26 @@ memory all stay on the daemon.
 
 ### Canvas
 
-| | | |
-|:-:|:-:|:-:|
-| ![The list of saved canvases with their type, frame count and agent](docs/screenshots/canvas-list.jpg) | ![A bar chart an agent drew, opened from the list](docs/screenshots/canvas-chart.jpg) | |
-| Saved canvases | A chart an agent drew | |
+| | |
+|:-:|:-:|
+| ![The list of saved canvases with their type, frame count and agent](docs/screenshots/canvas-list.jpg) | ![A bar chart an agent drew, opened from the list](docs/screenshots/canvas-chart.jpg) |
+| Saved canvases | A chart an agent drew |
 
 ### Automation
 
-| | | |
-|:-:|:-:|:-:|
-| ![The list of scheduled jobs with their agent, type, schedule, status and next run](docs/screenshots/automation-list.jpg) | ![A new shell job with its name, agent, schedule and command](docs/screenshots/automation-shell-job.jpg) | ![A new agent job with its prompt, model, session, tools, memory and delivery to a channel](docs/screenshots/automation-agent-job.jpg) |
-| Scheduled jobs | A shell job | An agent job with delivery |
-| ![The scheduler settings sheet](docs/screenshots/automation-scheduler.jpg) | | |
-| Scheduler settings | | |
+| | |
+|:-:|:-:|
+| ![The list of scheduled jobs with their agent, type, schedule, status and next run](docs/screenshots/automation-list.jpg) | ![A new shell job with its name, agent, schedule and command](docs/screenshots/automation-shell-job.jpg) |
+| Scheduled jobs | A shell job |
+| ![A new agent job with its prompt, model, session, tools, memory and delivery to a channel](docs/screenshots/automation-agent-job.jpg) | ![The scheduler settings sheet](docs/screenshots/automation-scheduler.jpg) |
+| An agent job with delivery | Scheduler settings |
 
 ### File edits
 
-| | | |
-|:-:|:-:|:-:|
-| ![An agent's file_edit shown as a diff: one line removed in red, one added in green, with the file name and +1 -1](docs/screenshots/code-edit-diff.jpg) | ![A new file written by the agent, every line added in green](docs/screenshots/code-file-write.jpg) | |
-| An edit as a diff | A new file | |
+| | |
+|:-:|:-:|
+| ![An agent's file_edit shown as a diff: one line removed in red, one added in green, with the file name and +1 -1](docs/screenshots/code-edit-diff.jpg) | ![A new file written by the agent, every line added in green](docs/screenshots/code-file-write.jpg) |
+| An edit as a diff | A new file |
 
 ### Doctor
 
@@ -180,6 +197,20 @@ memory all stay on the daemon.
 |:-:|:-:|:-:|
 | ![Doctor results: one error, two warnings and 151 checks OK, with Fix buttons on the config findings](docs/screenshots/doctor.jpg) | ![Doctor running its checks again after the fixes, with one warning left](docs/screenshots/doctor-running.jpg) | ![All 142 checks passed](docs/screenshots/doctor-passed.jpg) |
 | Findings with Fix | Running the checks | All checks passed |
+
+### Skills
+
+| | | |
+|:-:|:-:|:-:|
+| ![The selected agent's skills with the agent picker chip and search on top](docs/screenshots/skills-agent-picker.jpg) | ![Skills grouped by bundle section](docs/screenshots/skills-list.jpg) | ![Bundle chips in their own stable color; tap a skill to edit it](docs/screenshots/skills-bundles.jpg) |
+| Agent picker and search | Grouped by bundle | Bundles and editing |
+
+### Agent questions
+
+| | | |
+|:-:|:-:|:-:|
+| ![An ask_user question card with three choices and a Dismiss button](docs/screenshots/ask-question-single.jpg) | ![The same card with longer option labels](docs/screenshots/ask-question-long.jpg) | ![A multi-select poll card with two options ticked and a Send button](docs/screenshots/ask-poll-multiselect.jpg) |
+| Single choice | Longer options | Multi-select poll |
 
 ## Install
 

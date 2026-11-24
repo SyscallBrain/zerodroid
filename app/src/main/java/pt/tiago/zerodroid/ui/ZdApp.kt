@@ -196,6 +196,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
     var sopStack by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.sop.SopStackSaver) { mutableStateOf(emptyList<pt.tiago.zerodroid.ui.sop.SopRoute>()) }
     var canvasRoute by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.canvas.CanvasRouteSaver) { mutableStateOf<pt.tiago.zerodroid.ui.canvas.CanvasRoute?>(null) }
     var automationStack by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.cron.AutomationStackSaver) { mutableStateOf(emptyList<pt.tiago.zerodroid.ui.cron.AutomationRoute>()) }
+    var skillsStack by rememberSaveable(stateSaver = pt.tiago.zerodroid.ui.skills.SkillsStackSaver) { mutableStateOf(emptyList<pt.tiago.zerodroid.ui.skills.SkillsRoute>()) }
     var doctorOpen by rememberSaveable { mutableStateOf(false) }
     var notifRationale by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -236,6 +237,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
         canvasRoute != null -> "canvas"
         doctorOpen -> "doctor"
         automationStack.isNotEmpty() -> "automation"
+        skillsStack.isNotEmpty() -> "skills"
         sopStack.isNotEmpty() -> "workflows"
         agentAlias != null -> "agent"
         chatId != null -> "chat"
@@ -278,6 +280,7 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
                         onOpenCanvas = { pt.tiago.zerodroid.Perf.navigate("canvas"); canvasRoute = pt.tiago.zerodroid.ui.canvas.CanvasRoute.List },
                         onOpenAutomation = { pt.tiago.zerodroid.Perf.navigate("automation"); automationStack = listOf(pt.tiago.zerodroid.ui.cron.AutomationRoute.List) },
                         onOpenDoctor = { pt.tiago.zerodroid.Perf.navigate("doctor"); doctorOpen = true },
+                        onOpenSkills = { pt.tiago.zerodroid.Perf.navigate("skills"); skillsStack = listOf(pt.tiago.zerodroid.ui.skills.SkillsRoute.List) },
                     )
                     1 -> ChatsScreen(viewModel<ChatsViewModel>(), active = active, onOpen = openChat)
                     TAB_CODE -> CodeScreen(viewModel<CodeViewModel>(), active = active, onOpen = openChat)
@@ -369,6 +372,10 @@ private fun MainShell(debug: Boolean, externalOpen: OpenChat?, onExternalOpenCon
 
     if (automationStack.isNotEmpty()) {
         pt.tiago.zerodroid.ui.cron.AutomationHost(automationStack, onStack = { automationStack = it })
+    }
+
+    if (skillsStack.isNotEmpty()) {
+        pt.tiago.zerodroid.ui.skills.SkillsHost(skillsStack, onStack = { skillsStack = it })
     }
 
     if (doctorOpen) {

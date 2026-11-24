@@ -13,6 +13,7 @@ private val SHOW_WORKFLOWS_TILE = booleanPreferencesKey("home_show_workflows")
 private val SHOW_CANVAS_TILE = booleanPreferencesKey("home_show_canvas")
 private val SHOW_AUTOMATION_TILE = booleanPreferencesKey("home_show_automation")
 private val SHOW_DOCTOR_TILE = booleanPreferencesKey("home_show_doctor")
+private val SHOW_SKILLS_TILE = booleanPreferencesKey("home_show_skills")
 
 /** Phone-only display preferences. */
 class ScreenPrefs(private val context: Context) {
@@ -36,6 +37,10 @@ class ScreenPrefs(private val context: Context) {
     /** Whether Home shows the Doctor tile. */
     val showDoctorTile: StateFlow<Boolean> = _showDoctorTile.asStateFlow()
 
+    private val _showSkillsTile = MutableStateFlow(true)
+    /** Whether Home shows the Skills tile. Hiding it does not change the daemon's skills. */
+    val showSkillsTile: StateFlow<Boolean> = _showSkillsTile.asStateFlow()
+
     suspend fun load() {
         val prefs = runCatching { context.uiStore.data.first() }.getOrNull()
         _keepScreenOn.value = prefs?.get(KEEP_SCREEN_ON) ?: false
@@ -43,6 +48,7 @@ class ScreenPrefs(private val context: Context) {
         _showCanvasTile.value = prefs?.get(SHOW_CANVAS_TILE) ?: true
         _showAutomationTile.value = prefs?.get(SHOW_AUTOMATION_TILE) ?: true
         _showDoctorTile.value = prefs?.get(SHOW_DOCTOR_TILE) ?: true
+        _showSkillsTile.value = prefs?.get(SHOW_SKILLS_TILE) ?: true
     }
 
     suspend fun setKeepScreenOn(on: Boolean) {
@@ -68,5 +74,10 @@ class ScreenPrefs(private val context: Context) {
     suspend fun setShowAutomationTile(on: Boolean) {
         _showAutomationTile.value = on
         runCatching { context.uiStore.edit { it[SHOW_AUTOMATION_TILE] = on } }
+    }
+
+    suspend fun setShowSkillsTile(on: Boolean) {
+        _showSkillsTile.value = on
+        runCatching { context.uiStore.edit { it[SHOW_SKILLS_TILE] = on } }
     }
 }

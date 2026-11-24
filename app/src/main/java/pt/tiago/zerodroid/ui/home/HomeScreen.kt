@@ -84,6 +84,7 @@ fun HomeScreen(
     onOpenCanvas: () -> Unit = {},
     onOpenAutomation: () -> Unit = {},
     onOpenDoctor: () -> Unit = {},
+    onOpenSkills: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val workflows by viewModel.workflows.collectAsStateWithLifecycle()
@@ -91,6 +92,7 @@ fun HomeScreen(
     val showCanvas by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showCanvasTile.collectAsStateWithLifecycle()
     val showAutomation by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showAutomationTile.collectAsStateWithLifecycle()
     val showDoctor by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showDoctorTile.collectAsStateWithLifecycle()
+    val showSkills by pt.tiago.zerodroid.data.ZeroDroidConnection.screen.showSkillsTile.collectAsStateWithLifecycle()
     val m by viewModel.model.collectAsStateWithLifecycle()
     pt.tiago.zerodroid.RecomposeProbe("HomeScreen")
     pt.tiago.zerodroid.Perf.mark("home.firstComposition")
@@ -181,7 +183,7 @@ fun HomeScreen(
                     d = { ZcTile("Sessions", m.activeSessions?.toString(), suffix = "active", stale = m.stale, loading = loading, modifier = it) },
                 )
             }
-            if (showWorkflows || showCanvas || showAutomation || showDoctor) item("shortcuts") {
+            if (showWorkflows || showCanvas || showAutomation || showDoctor || showSkills) item("shortcuts") {
                 // Read here, not at the top: a new canvas or a finished doctor run recomposes only this card.
                 val canvases by pt.tiago.zerodroid.data.ZeroDroidConnection.canvas.canvases.collectAsStateWithLifecycle()
                 val ds by pt.tiago.zerodroid.data.ZeroDroidConnection.doctor.state.collectAsStateWithLifecycle()
@@ -223,6 +225,12 @@ fun HomeScreen(
                             ),
                         )
                     }
+                    if (showSkills) add(
+                        ShortcutRow(
+                            "skills", ZcIcons.Book, "Skills", null,
+                            "Skills each agent can use", null, onClick = onOpenSkills,
+                        ),
+                    )
                 }
                 ShortcutsCard(rows)
             }
@@ -426,7 +434,7 @@ private fun Tone.urgency(): Int = when (this) {
 }
 
 /**
- * Workflows, Canvas, Automation and Doctor as one grouped list rather than four metric tiles:
+ * Workflows, Canvas, Automation, Doctor and Skills as one grouped list rather than metric tiles:
  * they are places to go, not numbers to read. Rows with a red or amber pill float to the top.
  */
 @Composable

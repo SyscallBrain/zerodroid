@@ -70,6 +70,7 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
     val showCanvas by ZeroDroidConnection.screen.showCanvasTile.collectAsStateWithLifecycle()
     val showAutomation by ZeroDroidConnection.screen.showAutomationTile.collectAsStateWithLifecycle()
     val showDoctor by ZeroDroidConnection.screen.showDoctorTile.collectAsStateWithLifecycle()
+    val showSkills by ZeroDroidConnection.screen.showSkillsTile.collectAsStateWithLifecycle()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val profile = (phase as? AppPhase.Paired)?.profile
     var confirmUnpair by remember { mutableStateOf(false) }
@@ -142,6 +143,10 @@ fun PhoneScreen(debug: Boolean, onBack: () -> Unit, modifier: Modifier = Modifie
                 Divider()
                 HomeSwitchRow("Doctor", "Off hides it from Home. Doctor stays in Config.", showDoctor) {
                     scope.launch { ZeroDroidConnection.screen.setShowDoctorTile(it) }
+                }
+                Divider()
+                HomeSwitchRow("Skills", "Off hides it from Home. The daemon's skills are unchanged.", showSkills) {
+                    scope.launch { ZeroDroidConnection.screen.setShowSkillsTile(it) }
                 }
             }
 
