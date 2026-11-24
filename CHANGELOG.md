@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-11-24
+
+### Added
+
+- Chat answers the agent's ask_user/poll questions with choice cards
+  (single choice or multi-select poll) sent back over the RPC channel. The
+  socket advertises the elicitation capability on initialize and re-attaches
+  open sessions on reconnect, so questions keep arriving.
+- New Skills menu from the Home shortcuts (hideable in Config > Phone >
+  Home): pick an agent and see its skills grouped by bundle with a stable
+  per-bundle color chip, search them, and edit a bundle skill's SKILL.md
+  frontmatter fields and Markdown body with save and delete through the
+  daemon's skills RPC. Workspace skills are listed read-only.
+
 ## [0.9.5] - 2026-11-23
 
 ### Fixed
@@ -202,7 +216,8 @@ First public release.
 - Release APKs built, signed and published by GitHub Actions, with
   `SHA256SUMS` and signed build provenance.
 
-[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.5...HEAD
+[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.6...HEAD
+[0.9.6]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.2...v0.9.3

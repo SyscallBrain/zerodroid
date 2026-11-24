@@ -32,8 +32,8 @@ android {
         namespace = "pt.tiago.zerodroid"
         minSdk = 29
         targetSdk = 36
-        versionCode = 102
-        versionName = "0.9.5"
+        versionCode = 103
+        versionName = "0.9.6"
     }
 
     buildFeatures {
