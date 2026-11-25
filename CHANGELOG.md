@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.7] - 2026-11-25
+
 ### Added
 
 - Long-pressing a chat in the Chats list opens a menu with Rename and Delete:
@@ -227,7 +229,8 @@ First public release.
 - Release APKs built, signed and published by GitHub Actions, with
   `SHA256SUMS` and signed build provenance.
 
-[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.6...HEAD
+[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.7...HEAD
+[0.9.7]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.3...v0.9.4
