@@ -110,7 +110,7 @@ fun ChatsScreen(viewModel: ChatsViewModel, active: Boolean = true, onOpen: (Stri
                             row,
                             removing = row.id in m.removing,
                             modifier = Modifier.animateItem(),
-                            onLongClick = { viewModel.askDelete(row) },
+                            onLongClick = { viewModel.askMenu(row) },
                         ) { viewModel.open(row, onOpen) }
                     }
                 }
@@ -176,6 +176,46 @@ fun ChatsScreen(viewModel: ChatsViewModel, active: Boolean = true, onOpen: (Stri
         }
     }
 
+    m.menu?.let { row ->
+        val sheet = rememberFullSheetState()
+        ModalBottomSheet(
+            onDismissRequest = viewModel::dismissMenu,
+            sheetState = sheet,
+            containerColor = ZcTokens.surface,
+            scrimColor = ZcTokens.scrim,
+            dragHandle = { Box(Modifier.padding(top = 10.dp).size(36.dp, 4.dp).background(ZcTokens.hairlineStrong, RoundedCornerShape(2.dp))) },
+            contentWindowInsets = NoSheetInsets,
+        ) {
+            SheetBody {
+                Column(Modifier.navigationBarsPadding().imePadding().padding(bottom = 12.dp)) {
+                    Text(
+                        row.title, style = ZcType.title, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = ZcTokens.gutter, vertical = 12.dp),
+                    )
+                    MenuRow(ZcIcons.Link, "Rename", "Change this chat's name") { viewModel.askRename(row) }
+                    HorizontalDivider(color = ZcTokens.hairline)
+                    MenuRow(ZcIcons.Trash, "Delete", "Remove it and its messages from the daemon", danger = true) { viewModel.askDelete(row) }
+                }
+            }
+        }
+    }
+
+    m.renaming?.let { row ->
+        var name by remember(row.id) { mutableStateOf(row.title) }
+        AlertDialog(
+            onDismissRequest = viewModel::dismissRename,
+            containerColor = ZcTokens.raised,
+            title = { Text("Rename chat", style = ZcType.heading) },
+            text = { ZcTextField(name, { name = it }, "Name", modifier = Modifier.fillMaxWidth()) },
+            confirmButton = {
+                TextButton(enabled = name.isNotBlank(), onClick = { viewModel.confirmRename(name) }) {
+                    Text("Save", style = ZcType.button.copy(color = ZcTokens.accentStart))
+                }
+            },
+            dismissButton = { TextButton(onClick = viewModel::dismissRename) { Text("Cancel", style = ZcType.button.copy(color = ZcTokens.muted)) } },
+        )
+    }
+
     m.deleting?.let { row ->
         AlertDialog(
             onDismissRequest = viewModel::dismissDelete,
@@ -212,11 +252,11 @@ private fun SessionRowView(
     onLongClick: () -> Unit,
     onClick: () -> Unit,
 ) {
-    // Long press offers deletion; a row being deleted fades and ignores taps.
+    // Long press opens the chat's menu (rename, delete); a row being deleted fades and ignores taps.
     Column(
         modifier
             .then(if (removing) Modifier.alpha(0.4f) else Modifier)
-            .combinedClickable(enabled = !removing, onLongClickLabel = "Delete chat", onLongClick = onLongClick, onClick = onClick),
+            .combinedClickable(enabled = !removing, onLongClickLabel = "Chat options", onLongClick = onLongClick, onClick = onClick),
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = ZcTokens.gutter, vertical = 12.dp),
@@ -244,6 +284,23 @@ private fun SessionRowView(
             Text(row.time, style = ZcType.caption.copy(color = ZcTokens.faint))
         }
         HorizontalDivider(Modifier.padding(start = ZcTokens.gutter + 54.dp), color = ZcTokens.hairline)
+    }
+}
+
+@Composable
+private fun MenuRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, hint: String, danger: Boolean = false, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick)
+            .padding(horizontal = ZcTokens.gutter, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(icon, null, tint = if (danger) ZcTokens.danger else ZcTokens.accentStart, modifier = Modifier.size(18.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = if (danger) ZcType.body.copy(color = ZcTokens.danger) else ZcType.body)
+            Text(hint, style = ZcType.caption)
+        }
+        Icon(ZcIcons.Chevron, null, tint = ZcTokens.faint, modifier = Modifier.size(14.dp))
     }
 }
 

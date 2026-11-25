@@ -8,6 +8,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Long-pressing a chat in the Chats list opens a menu with Rename and Delete:
+  a chat can now be renamed right from the list (`session/rename`, no need to
+  open it first), and a chat already open in the app shows the new name at once.
 - A new chat is named automatically from its first message (first non-blank
   line, whitespace collapsed, capped at 60 characters) with `session/rename`,
   so it no longer sits in the Chats list as "Chat with <agent>". Code sessions
