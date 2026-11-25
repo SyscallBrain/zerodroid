@@ -1,11 +1,15 @@
 package pt.tiago.zerodroid.data
 
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import pt.tiago.zerodroid.rpc.FakeCaller
+import pt.tiago.zerodroid.rpc.RpcCodes
+import pt.tiago.zerodroid.rpc.RpcError
+import pt.tiago.zerodroid.rpc.RpcException
 
 class SessionsRepositoryTest {
     private fun entry(id: String, last: String) =
@@ -57,5 +61,36 @@ class SessionsRepositoryTest {
         assertEquals("session/delete", rpc.sent.last().method)
         assertEquals("""{"session_id":"d1"}""", rpc.sent.last().json)
         assertFalse(repo.isOwnedHere("d1"))
+    }
+
+    @Test
+    fun renameSendsSessionIdAndName() = runTest {
+        val rpc = FakeCaller()
+        SessionsRepository(rpc).rename("s1", "main", "My chat")
+        assertEquals("session/rename", rpc.sent.single().method)
+        assertEquals("""{"session_id":"s1","name":"My chat"}""", rpc.sent.single().json)
+    }
+
+    @Test
+    fun renameReattachesDormantSessionFirst() = runTest {
+        var first = true
+        val rpc = FakeCaller().apply {
+            handlers["session/rename"] = {
+                if (first) { first = false; throw RpcException(RpcError(RpcCodes.SESSION_NOT_OWNED, "dormant")) }
+                JsonObject(emptyMap())
+            }
+            on("session/new", """{"session_id":"s1","agent_alias":"main","message_count":2,"workspace_dir":"/w"}""")
+        }
+        SessionsRepository(rpc).rename("s1", "main", "New name")
+        assertEquals(listOf("session/rename", "session/new", "session/rename"), rpc.methods())
+        assertEquals("""{"session_id":"s1","name":"New name"}""", rpc.sent.last().json)
+    }
+
+    @Test
+    fun renamePropagatesOtherErrorsWithoutReattaching() = runTest {
+        val rpc = FakeCaller().apply { fail("session/rename", RpcCodes.FORBIDDEN, "no") }
+        val r = runCatching { SessionsRepository(rpc).rename("s1", "main", "x") }
+        assertTrue(r.exceptionOrNull() is RpcException)
+        assertEquals(listOf("session/rename"), rpc.methods())
     }
 }

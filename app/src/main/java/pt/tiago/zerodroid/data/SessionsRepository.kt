@@ -1,6 +1,8 @@
 package pt.tiago.zerodroid.data
 
 import pt.tiago.zerodroid.rpc.RpcCaller
+import pt.tiago.zerodroid.rpc.RpcCodes
+import pt.tiago.zerodroid.rpc.RpcException
 import pt.tiago.zerodroid.rpc.proto.AgentsListResult
 import pt.tiago.zerodroid.rpc.proto.FsListDirParams
 import pt.tiago.zerodroid.rpc.proto.FsListDirResult
@@ -10,6 +12,7 @@ import pt.tiago.zerodroid.rpc.proto.SessionListParams
 import pt.tiago.zerodroid.rpc.proto.SessionListResult
 import pt.tiago.zerodroid.rpc.proto.SessionNewParams
 import pt.tiago.zerodroid.rpc.proto.SessionNewResult
+import pt.tiago.zerodroid.rpc.proto.SessionRenameParams
 import pt.tiago.zerodroid.rpc.callAs
 import pt.tiago.zerodroid.rpc.callWith
 import pt.tiago.zerodroid.rpc.request
@@ -65,6 +68,20 @@ class SessionsRepository(private val rpc: RpcCaller) {
     suspend fun delete(sessionId: String) {
         rpc.callWith("session/delete", SessionIdParams(sessionId))
         owned -= sessionId
+    }
+
+    /**
+     * Renames the session on the daemon, without opening it. A dormant session (after a
+     * daemon restart) is re-attached first, the same way [attach] does.
+     */
+    suspend fun rename(sessionId: String, agentAlias: String, name: String) {
+        runCatching { rpc.callWith("session/rename", SessionRenameParams(sessionId, name)) }
+            .onFailure { t ->
+                if (t is RpcException && (t.error.code == RpcCodes.SESSION_NOT_FOUND || t.error.code == RpcCodes.SESSION_NOT_OWNED)) {
+                    attach(sessionId, agentAlias)
+                    rpc.callWith("session/rename", SessionRenameParams(sessionId, name))
+                } else throw t
+            }
     }
 
     fun markOwned(sessionId: String) { owned += sessionId }

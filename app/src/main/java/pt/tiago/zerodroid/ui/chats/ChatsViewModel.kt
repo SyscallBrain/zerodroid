@@ -38,8 +38,12 @@ data class ChatsModel(
     val error: String? = null,
     val takeover: SessionRow? = null,
     val creating: String? = null,
+    /** Chat whose long-press menu (rename, delete) is open. */
+    val menu: SessionRow? = null,
     /** Chat waiting for the user to confirm deletion. */
     val deleting: SessionRow? = null,
+    /** Chat waiting for the user to type a new name. */
+    val renaming: SessionRow? = null,
     /** Ids being deleted on the daemon right now. */
     val removing: Set<String> = emptySet(),
 )
@@ -161,12 +165,35 @@ class ChatsViewModel(private val connection: ZeroDroidConnection = ZeroDroidConn
         }
     }
 
+    fun askMenu(row: SessionRow) = _model.update { it.copy(menu = row) }
+    fun dismissMenu() = _model.update { it.copy(menu = null) }
+
+    fun askRename(row: SessionRow) = _model.update { it.copy(menu = null, renaming = row) }
+    fun dismissRename() = _model.update { it.copy(renaming = null) }
+
+    /** Renames the chat on the daemon from the list, without opening it. */
+    fun confirmRename(name: String) {
+        val row = _model.value.renaming ?: return
+        _model.update { it.copy(renaming = null) }
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { connection.sessions.rename(row.id, row.alias, trimmed) }
+                .onSuccess {
+                    // A chat open in this process shows the new name right away; the list refreshes from the daemon.
+                    connection.chats.existing(row.id)?.setTitle(trimmed)
+                    refresh()
+                }
+                .onFailure { t -> _model.update { it.copy(error = "Could not rename \"${row.title}\": ${t.userMessage()}") } }
+        }
+    }
+
     fun askDelete(row: SessionRow) {
         if (row.running) {
-            _model.update { it.copy(error = "${row.alias} is still working in this chat. Stop the turn before deleting it.") }
+            _model.update { it.copy(menu = null, error = "${row.alias} is still working in this chat. Stop the turn before deleting it.") }
             return
         }
-        _model.update { it.copy(deleting = row) }
+        _model.update { it.copy(menu = null, deleting = row) }
     }
 
     fun dismissDelete() = _model.update { it.copy(deleting = null) }
