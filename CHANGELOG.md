@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A new chat is named automatically from its first message (first non-blank
+  line, whitespace collapsed, capped at 60 characters) with `session/rename`,
+  so it no longer sits in the Chats list as "Chat with <agent>". Code sessions
+  (the daemon cannot rename those), image-only first messages and chats the
+  user already renamed keep their name.
+
 ## [0.9.6] - 2026-11-24
 
 ### Added

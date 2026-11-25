@@ -186,10 +186,19 @@ class ChatSession(
         val attachments = toAttachments(images).takeIf { it.isNotEmpty() }
         draftText.value = ""
         draftImages.value = emptyList()
+        // A chat that never had a message gets its name from the first one, so it does not
+        // stay "Chat with <agent>" in the list. Code sessions are skipped: the daemon cannot
+        // rename those, and a manually renamed chat keeps the user's name.
+        val autoTitle = if (!code && _title.value == null && _state.value.items.none { it is ChatItem.User }) autoTitleFrom(text) else null
         _state.update { localPrompt(it, trimmed, shas) }
         promptJob = scope.launch {
             // Keep local copies off the caller's (main) thread; the prompt below does not need them.
             if (images.isNotEmpty()) launch(kotlinx.coroutines.Dispatchers.IO) { images.forEach { runCatching { keepImage(it) } } }
+            if (autoTitle != null) {
+                // Best effort and silent: if the daemon refuses, the chat keeps its default name.
+                runCatching { withOwnership { rpc.callWith("session/rename", SessionRenameParams(sessionId, autoTitle)) } }
+                    .onSuccess { setTitle(autoTitle) }
+            }
             runCatching {
                 // The daemon answers session/prompt only when the turn ends; the turn itself streams as session/update.
                 withOwnership { rpc.callWith("session/prompt", SessionPromptParams(sessionId, trimmed, attachments), timeoutMs = 0) }
@@ -354,6 +363,18 @@ class ChatSessions(
         sessions.clear()
         _running.value = emptyMap()
     }
+}
+
+/**
+ * The automatic name for a brand-new chat, taken from its first message: the first
+ * non-blank line with whitespace collapsed, capped at [max] characters. Null when the
+ * message has no text to name the chat by (an image-only prompt).
+ */
+fun autoTitleFrom(prompt: String, max: Int = 60): String? {
+    val line = prompt.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }
+        ?.replace(Regex("\\s+"), " ")
+        ?: return null
+    return if (line.length <= max) line else line.take(max - 1).trimEnd() + "…"
 }
 
 fun sessionIdOf(e: SessionUpdate): String? = when (e) {

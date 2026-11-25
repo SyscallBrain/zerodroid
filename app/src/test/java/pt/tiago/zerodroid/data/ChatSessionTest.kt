@@ -6,6 +6,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import pt.tiago.zerodroid.rpc.FakeCaller
@@ -22,7 +23,9 @@ class ChatSessionTest {
     fun sendWhileIdleCallsPromptWithoutTimeout() = runTest(UnconfinedTestDispatcher()) {
         val rpc = FakeCaller()
         session(rpc).send("hello")
-        val p = rpc.sent.single()
+        // The first message of a new chat names it first (session/rename), then prompts.
+        assertEquals(listOf("session/rename", "session/prompt"), rpc.methods())
+        val p = rpc.sent.last()
         assertEquals("session/prompt", p.method)
         assertEquals("""{"session_id":"s","prompt":"hello"}""", p.json)
         assertEquals(0L, p.timeoutMs)
@@ -36,6 +39,94 @@ class ChatSessionTest {
         s.send("faster")
         assertEquals("session/steer", rpc.sent.single().method)
         assertEquals("""{"session_id":"s","content":"faster"}""", rpc.sent.single().json)
+    }
+
+    @Test
+    fun firstPromptAutoRenamesTheChat() = runTest(UnconfinedTestDispatcher()) {
+        val rpc = FakeCaller()
+        val s = session(rpc)
+        s.send("  How do I reset   my router?  ")
+        assertEquals(listOf("session/rename", "session/prompt"), rpc.methods())
+        assertEquals("""{"session_id":"s","name":"How do I reset my router?"}""", rpc.sent[0].json)
+        assertEquals("How do I reset my router?", s.title.value)
+    }
+
+    @Test
+    fun laterPromptsDoNotRenameAgain() = runTest(UnconfinedTestDispatcher()) {
+        val rpc = FakeCaller()
+        val s = session(rpc)
+        s.send("first")
+        s.onUpdate(SessionUpdate.TurnComplete("s", "completed", "done"))
+        rpc.sent.clear()
+        s.send("second")
+        assertEquals(listOf("session/prompt"), rpc.methods())
+    }
+
+    @Test
+    fun chatWithHistoryIsNotAutoRenamed() = runTest(UnconfinedTestDispatcher()) {
+        val rpc = FakeCaller().apply {
+            on("session/messages", history)
+            on("session/state", """{"session_id":"s","state":"idle"}""")
+        }
+        val s = session(rpc)
+        s.reload()
+        rpc.sent.clear()
+        s.send("a new question")
+        assertEquals(listOf("session/prompt"), rpc.methods())
+        assertNull(s.title.value)
+    }
+
+    @Test
+    fun longFirstPromptIsCappedInTheTitle() = runTest(UnconfinedTestDispatcher()) {
+        val rpc = FakeCaller()
+        val s = session(rpc)
+        s.send("x".repeat(120))
+        assertEquals("""{"session_id":"s","name":"${"x".repeat(59)}…"}""", rpc.sent[0].json)
+        assertEquals(60, s.title.value?.length)
+    }
+
+    @Test
+    fun codeSessionsAreNotAutoRenamed() = runTest(UnconfinedTestDispatcher()) {
+        val rpc = FakeCaller()
+        ChatSession("s", "main", rpc, ApprovalCenter(rpc), backgroundScope, code = true).send("hello")
+        assertEquals(listOf("session/prompt"), rpc.methods())
+    }
+
+    @Test
+    fun manuallyRenamedChatKeepsItsName() = runTest(UnconfinedTestDispatcher()) {
+        val rpc = FakeCaller()
+        val s = session(rpc)
+        s.setTitle("My chat")
+        s.send("hello")
+        assertEquals(listOf("session/prompt"), rpc.methods())
+        assertEquals("My chat", s.title.value)
+    }
+
+    @Test
+    fun imageOnlyFirstPromptDoesNotRename() = runTest(UnconfinedTestDispatcher()) {
+        val rpc = FakeCaller()
+        session(rpc).send("   ", listOf(OutgoingImage("e".repeat(64), byteArrayOf(1))))
+        assertEquals(listOf("session/prompt"), rpc.methods())
+    }
+
+    @Test
+    fun refusedAutoRenameIsSilentAndKeepsDefaultName() = runTest(UnconfinedTestDispatcher()) {
+        val rpc = FakeCaller().apply { fail("session/rename", RpcCodes.FORBIDDEN, "no") }
+        val s = session(rpc)
+        s.send("hello")
+        assertEquals(listOf("session/rename", "session/prompt"), rpc.methods())
+        assertNull(s.title.value)
+        assertTrue("no error notice for a best-effort rename", s.state.value.items.none { it is ChatItem.Notice })
+    }
+
+    @Test
+    fun autoTitleFromPicksFirstNonBlankLineAndCollapsesWhitespace() {
+        assertEquals("hello world", autoTitleFrom("\n  hello   world \n second line"))
+        assertNull(autoTitleFrom("   \n \n"))
+        assertEquals("short", autoTitleFrom("short"))
+        val long = autoTitleFrom("word ".repeat(40))
+        assertEquals(60, long?.length)
+        assertTrue(long!!.endsWith("…"))
     }
 
     @Test
@@ -108,8 +199,8 @@ class ChatSessionTest {
             JsonObject(emptyMap())
         }
         session(rpc).send("hi")
-        assertEquals(listOf("session/prompt", "session/new", "session/prompt"), rpc.methods())
-        assertEquals("""{"agent_alias":"main","session_id":"s","keep_siblings":true}""", rpc.sent[1].json)
+        assertEquals(listOf("session/rename", "session/prompt", "session/new", "session/prompt"), rpc.methods())
+        assertEquals("""{"agent_alias":"main","session_id":"s","keep_siblings":true}""", rpc.sent[2].json)
     }
 
     @Test
@@ -186,7 +277,7 @@ class ChatSessionTest {
         val s = session(rpc)
         val sha = "d".repeat(64)
         s.send("what is this?", listOf(OutgoingImage(sha, byteArrayOf(1, 2, 3))))
-        val p = rpc.sent.single()
+        val p = rpc.sent.last()
         assertEquals("session/prompt", p.method)
         assertEquals(
             """{"session_id":"s","prompt":"what is this?","attachments":[{"filename":"dddddddddddd.jpg","data_b64":"AQID","mime_type":"image/jpeg"}]}""",
