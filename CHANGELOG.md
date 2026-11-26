@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.8] - 2026-11-26
+
 ### Added
 
 - New "Show reasoning" switch in a chat's Display settings (the session sheet):
@@ -236,7 +238,8 @@ First public release.
 - Release APKs built, signed and published by GitHub Actions, with
   `SHA256SUMS` and signed build provenance.
 
-[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.7...HEAD
+[Unreleased]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.8...HEAD
+[0.9.8]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.7...v0.9.8
 [0.9.7]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/SyscallBrain/zerodroid/compare/v0.9.4...v0.9.5
