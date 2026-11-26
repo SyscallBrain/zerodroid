@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 
 private val KEEP_SCREEN_ON = booleanPreferencesKey("chat_keep_screen_on")
+private val SHOW_REASONING = booleanPreferencesKey("chat_show_reasoning")
 private val SHOW_WORKFLOWS_TILE = booleanPreferencesKey("home_show_workflows")
 private val SHOW_CANVAS_TILE = booleanPreferencesKey("home_show_canvas")
 private val SHOW_AUTOMATION_TILE = booleanPreferencesKey("home_show_automation")
@@ -20,6 +21,10 @@ class ScreenPrefs(private val context: Context) {
     private val _keepScreenOn = MutableStateFlow(false)
     /** While true, an open chat stops the screen from timing out. */
     val keepScreenOn: StateFlow<Boolean> = _keepScreenOn.asStateFlow()
+
+    private val _showReasoning = MutableStateFlow(true)
+    /** Whether the transcript shows the model's reasoning (Thought rows). */
+    val showReasoning: StateFlow<Boolean> = _showReasoning.asStateFlow()
 
     private val _showWorkflowsTile = MutableStateFlow(true)
     /** Whether Home shows the Workflows tile; people who don't use SOPs can hide it. */
@@ -44,6 +49,7 @@ class ScreenPrefs(private val context: Context) {
     suspend fun load() {
         val prefs = runCatching { context.uiStore.data.first() }.getOrNull()
         _keepScreenOn.value = prefs?.get(KEEP_SCREEN_ON) ?: false
+        _showReasoning.value = prefs?.get(SHOW_REASONING) ?: true
         _showWorkflowsTile.value = prefs?.get(SHOW_WORKFLOWS_TILE) ?: true
         _showCanvasTile.value = prefs?.get(SHOW_CANVAS_TILE) ?: true
         _showAutomationTile.value = prefs?.get(SHOW_AUTOMATION_TILE) ?: true
@@ -54,6 +60,11 @@ class ScreenPrefs(private val context: Context) {
     suspend fun setKeepScreenOn(on: Boolean) {
         _keepScreenOn.value = on
         runCatching { context.uiStore.edit { it[KEEP_SCREEN_ON] = on } }
+    }
+
+    suspend fun setShowReasoning(on: Boolean) {
+        _showReasoning.value = on
+        runCatching { context.uiStore.edit { it[SHOW_REASONING] = on } }
     }
 
     suspend fun setShowWorkflowsTile(on: Boolean) {

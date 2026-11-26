@@ -112,7 +112,10 @@ fun ChatScreen(
 
     // Items render newest-first in a reversed list: the view stays pinned to the bottom while
     // text streams in, and does not move if the user has scrolled up to read.
-    val reversed = remember(s.items) { s.items.asReversed() }
+    val showReasoning by ZeroDroidConnection.screen.showReasoning.collectAsStateWithLifecycle()
+    val reversed = remember(s.items, showReasoning) {
+        pt.tiago.zerodroid.data.visibleItems(s.items, showReasoning).asReversed()
+    }
     val atTop by remember { derivedStateOf { list.layoutInfo.visibleItemsInfo.lastOrNull()?.index == list.layoutInfo.totalItemsCount - 1 } }
     LaunchedEffect(atTop, s.hasOlder) { if (atTop && s.hasOlder) viewModel.loadOlder() }
     LaunchedEffect(Unit) {

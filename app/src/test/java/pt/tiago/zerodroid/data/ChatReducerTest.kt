@@ -191,4 +191,18 @@ class ChatReducerTest {
         assertEquals(listOf(sha), u.images)
         assertEquals("image prompts are not retried as bare text", null, s.lastUserPrompt)
     }
+
+    @Test
+    fun hidingReasoningDropsThoughtsOnly() {
+        val s = run(
+            U.AgentThoughtChunk("s", "hmm"), chunk("Hi!"),
+            start = localPrompt(ChatState(), "go"),
+        )
+        assertEquals(3, visibleItems(s.items, showReasoning = true).size)
+        assertEquals(
+            listOf<ChatItem>(s.items[0], s.items[2]),
+            visibleItems(s.items, showReasoning = false),
+        )
+        assertTrue(s.items[1] is ChatItem.Thought)
+    }
 }

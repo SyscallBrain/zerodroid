@@ -88,6 +88,10 @@ private const val TRUNCATED = "… (truncated)"
 fun truncateForDisplay(s: String): String =
     if (s.length <= MAX_TOOL_OUTPUT) s else s.take(MAX_TOOL_OUTPUT - TRUNCATED.length) + TRUNCATED
 
+/** What the transcript renders: with the reasoning pref off, Thought rows drop out. */
+fun visibleItems(items: List<ChatItem>, showReasoning: Boolean): List<ChatItem> =
+    if (showReasoning) items else items.filterNot { it is ChatItem.Thought }
+
 /** Pretty, compact rendering of tool arguments: a lone string arg is shown bare. */
 fun argsPreview(raw: JsonElement?): String = when (raw) {
     null, JsonNull -> ""
