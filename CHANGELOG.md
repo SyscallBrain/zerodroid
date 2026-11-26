@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- New "Show reasoning" switch in a chat's Display settings (the session sheet):
+  off hides the model's thinking (Thought rows) from the transcript while the
+  reply, tool calls and the header's live "thinking" status stay as they were.
+  The choice is remembered for every chat.
+
 ## [0.9.7] - 2026-11-25
 
 ### Added

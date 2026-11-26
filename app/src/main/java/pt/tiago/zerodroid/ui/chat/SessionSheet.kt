@@ -157,7 +157,7 @@ fun SessionSheet(
                                         r.label == null -> "Not set on the daemon, so the provider's own default applies. Set runtime.reasoning_effort in Config to choose it."
                                         r.effort == null ->
                                             "runtime.reasoning_enabled only switches thinking ${if (r.enabled == true) "on" else "off"} on Ollama. Other providers keep their own default. Set runtime.reasoning_effort in Config to choose a level."
-                                        r.effort != null && r.enabled != false && !r.passthrough ->
+                                        r.enabled != false && !r.passthrough ->
                                             "Global daemon setting. OpenAI-compatible providers only send it to OpenAI reasoning models unless the provider has reasoning_effort_passthrough on."
                                         else -> "Global daemon setting (runtime), the same for every agent."
                                     },
@@ -204,6 +204,22 @@ fun SessionSheet(
                                     Text("While a chat is open, for every chat", style = ZcType.caption)
                                 }
                                 ZcSwitch(keepScreenOn, toggle)
+                            }
+                            HorizontalDivider(color = ZcTokens.hairline)
+                            val showReasoning by ZeroDroidConnection.screen.showReasoning.collectAsStateWithLifecycle()
+                            val toggleReasoning = { on: Boolean -> scope.launch { ZeroDroidConnection.screen.setShowReasoning(on) }; Unit }
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { toggleReasoning(!showReasoning) }
+                                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Icon(ZcIcons.Sparkle, null, tint = ZcTokens.accentStart, modifier = Modifier.size(18.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text("Show reasoning", style = ZcType.body)
+                                    Text("The model's thinking between your message and its reply", style = ZcType.caption)
+                                }
+                                ZcSwitch(showReasoning, toggleReasoning)
                             }
                         }
                         SectionHeader("Actions", Modifier.padding(top = 8.dp))
